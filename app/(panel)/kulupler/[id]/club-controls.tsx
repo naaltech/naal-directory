@@ -6,8 +6,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { OFFICER_TITLES } from "@/lib/labels.ts";
 import {
   addMemberAction,
+  assignAdvisorAction,
   assignOfficerAction,
   closeClubAction,
+  endAdvisorAction,
   endOfficerAction,
   reapplyClubSettingsAction,
   removeMemberAction,
@@ -147,6 +149,62 @@ export function AssignOfficer({ clubId, domain }: { clubId: number; domain: stri
         </div>
       </Modal>
     </>
+  );
+}
+
+/** Danışman öğretmen ekleme: okuldaki öğretmenlerden seçilir */
+export function AssignAdvisor({ clubId, teachers }: { clubId: number; teachers: Option[] }) {
+  const [teacher, setTeacher] = useState<Option | null>(null);
+  const [error, setError] = useState<string>();
+  const [pending, start] = useTransition();
+  return (
+    <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
+      <div className="min-w-72 flex-1">
+        <ComboBox<Option>
+          id="advisor-picker"
+          titleText="Öğretmen"
+          placeholder={teachers.length ? "Ad veya branş yazın" : "Eklenebilecek öğretmen yok"}
+          disabled={teachers.length === 0}
+          items={teachers}
+          itemToString={(o) => o?.label ?? ""}
+          selectedItem={teacher}
+          onChange={({ selectedItem }) => {
+            setTeacher(selectedItem ?? null);
+            setError(undefined);
+          }}
+          shouldFilterItem={({ item, inputValue }) =>
+            !inputValue || item.label.toLocaleLowerCase("tr").includes(inputValue.toLocaleLowerCase("tr"))
+          }
+        />
+      </div>
+      <Button
+        size="md"
+        renderIcon={Add}
+        disabled={!teacher || pending}
+        onClick={() =>
+          start(async () => {
+            const res = await assignAdvisorAction(clubId, teacher!.id);
+            setError(res.error);
+            if (!res.error) setTeacher(null);
+          })
+        }
+      >
+        Danışman ekle
+      </Button>
+      {error && <p className="w-full text-sm text-support-error">{error}</p>}
+    </div>
+  );
+}
+
+export function EndAdvisor({ clubId, advisorId, name }: { clubId: number; advisorId: number; name: string }) {
+  return (
+    <RowAction
+      label="Danışmanlığı bitir"
+      heading="Danışmanlık bitirilsin mi?"
+      body={`${name} kulübün danışmanlığından çıkarılacak ve kulüp grubundaki yöneticiliği kaldırılacak.`}
+      confirmText="Bitir"
+      onConfirm={() => endAdvisorAction(clubId, advisorId)}
+    />
   );
 }
 

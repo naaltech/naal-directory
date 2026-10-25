@@ -89,7 +89,13 @@ export function getTeacher(db: DB, id: number) {
        WHERE m.teacher_id = ? ORDER BY g.email`,
     )
     .all(id) as { id: number; email: string; name: string; status: string }[];
-  return { teacher: t, groups };
+  const clubs = db
+    .prepare(
+      `SELECT k.id, k.name, a.started_at FROM club_advisors a JOIN clubs k ON k.id = a.club_id
+       WHERE a.teacher_id = ? AND a.ended_at IS NULL ORDER BY k.name`,
+    )
+    .all(id) as { id: number; name: string; started_at: string }[];
+  return { teacher: t, groups, clubs };
 }
 
 // ───── Ekleme ─────
@@ -295,6 +301,8 @@ export function markTeacherLeft(db: DB, id: number, userId: number, now = new Da
       db.prepare("UPDATE club_officers SET ended_at = datetime('now'), status = 'ARCHIVED' WHERE id = ?").run(r.id);
       enqueue(db, "REMOVE_ALIAS", "teacher", id, { email: t.email, alias: r.alias_email });
     }
+    // Kulüp danışmanlıkları biter; kulüp gruplarındaki yöneticilik aşağıdaki üyeliklerle birlikte kalkar
+    db.prepare("UPDATE club_advisors SET ended_at = datetime('now') WHERE teacher_id = ? AND ended_at IS NULL").run(id);
     const memberships = db
       .prepare("SELECT m.id, g.id AS group_id, g.email AS group_email FROM group_members m JOIN groups g ON g.id = m.group_id WHERE m.teacher_id = ?")
       .all(id) as { id: number; group_id: number; group_email: string }[];
@@ -365,6 +373,27 @@ export function undoTeacherLeft(db: DB, id: number, userId: number) {
     enqueue(db, "ADD_MEMBER", "group", group.id, { groupEmail: group.email, memberEmail: t.email, role: "MEMBER" });
     logAction(db, userId, "teacher.leave_undo", "teacher", id);
   })();
+}
+
+/** Okuldaki öğretmenlerin ilk şifreleri, toplu çıktı için. Her açılış kayda geçer. */
+export function teacherPasswordSlips(db: DB, userId: number) {
+  const rows = db
+    .prepare(
+      `SELECT id, first_name, last_name, branch, email, status, initial_password_enc FROM teachers
+       WHERE left_at IS NULL AND status NOT IN ('SUSPENDED', 'ARCHIVED', 'DELETED') AND initial_password_enc IS NOT NULL
+       ORDER BY last_name, first_name`,
+    )
+    .all() as {
+    id: number;
+    first_name: string;
+    last_name: string;
+    branch: string | null;
+    email: string;
+    status: string;
+    initial_password_enc: string;
+  }[];
+  logAction(db, userId, "teacher.password_slips", "teacher", null, { count: rows.length });
+  return rows.map(({ initial_password_enc, ...r }) => ({ ...r, password: decryptSecret(initial_password_enc) }));
 }
 
 export function revealTeacherPassword(db: DB, id: number, userId: number): string | null {

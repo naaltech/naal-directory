@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
+import { changeEmail, EmailChangeError } from "@/lib/email-change.ts";
 import { googleTakenOrNull } from "@/lib/google/taken.ts";
+import { PasswordResetError, resetPassword } from "@/lib/password-reset.ts";
 import {
   createTeachers,
   draftTeachers,
@@ -21,7 +23,7 @@ async function guard<T extends object>(fn: () => Promise<T> | T, paths: string[]
     paths.forEach((p) => revalidatePath(p));
     return res;
   } catch (e) {
-    if (e instanceof TeacherError) return { error: e.message };
+    if (e instanceof TeacherError || e instanceof EmailChangeError || e instanceof PasswordResetError) return { error: e.message };
     throw e;
   }
 }
@@ -56,6 +58,21 @@ export async function markTeacherLeftAction(id: number): Promise<{ error?: strin
 export async function undoTeacherLeftAction(id: number): Promise<{ error?: string }> {
   const user = await requireUser("ADMIN");
   return guard(() => (undoTeacherLeft(getDb(), id, user.id), {}), ["/ogretmenler", `/ogretmenler/${id}`, "/"]);
+}
+
+export async function changeTeacherEmailAction(id: number, local: string): Promise<{ email?: string; error?: string }> {
+  const user = await requireUser("ADMIN");
+  const { taken } = await googleTakenOrNull();
+  return guard(() => ({ email: changeEmail(getDb(), { type: "teacher", id, local }, user.id, taken) }), [
+    "/ogretmenler",
+    `/ogretmenler/${id}`,
+  ]);
+}
+
+// Sayfa yenilemesi istemcide, şifre penceresi kapanınca yapılır
+export async function resetTeacherPasswordAction(id: number): Promise<{ password?: string; error?: string }> {
+  const user = await requireUser("ADMIN");
+  return guard(() => ({ password: resetPassword(getDb(), { type: "teacher", id }, user.id) }), []);
 }
 
 export async function revealTeacherPasswordAction(id: number): Promise<{ password?: string; error?: string }> {

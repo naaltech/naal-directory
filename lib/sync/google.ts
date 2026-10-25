@@ -170,6 +170,12 @@ export class DryRunGoogle implements Google {
     if ((m = path.match(/^users\/([^/]+)$/)) && method === "PUT") {
       const u = this.users.get(decodeURIComponent(m[1]).toLowerCase()) ?? this.notFound(path);
       if (body.orgUnitPath && !this.ous.has(body.orgUnitPath)) throw new GoogleApiError(400, path, "Invalid Input: OrgUnit (deneme)");
+      if (body.primaryEmail) {
+        // Yeniden adlandırma: eski adres takma ad olarak kalır
+        const next = String(body.primaryEmail).toLowerCase();
+        if (this.taken(next) && this.users.get(next) !== u) conflict();
+        this.users.set(next, u);
+      }
       Object.assign(u, body);
       return result();
     }

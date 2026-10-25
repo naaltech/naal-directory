@@ -43,6 +43,8 @@ export interface ClubRow {
   group_status: string | null;
   members: number;
   officers: number;
+  /** Aktif danışmanların adları, virgülle */
+  advisors: string | null;
 }
 
 export function listClubs(db: DB): ClubRow[] {
@@ -50,7 +52,9 @@ export function listClubs(db: DB): ClubRow[] {
     .prepare(
       `SELECT k.id, k.code, k.name, k.description, k.is_active, g.email, g.status AS group_status,
               (SELECT count(*) FROM club_members m WHERE m.club_id = k.id) AS members,
-              (SELECT count(*) FROM club_officers o WHERE o.club_id = k.id AND o.ended_at IS NULL) AS officers
+              (SELECT count(*) FROM club_officers o WHERE o.club_id = k.id AND o.ended_at IS NULL) AS officers,
+              (SELECT group_concat(t.first_name || ' ' || t.last_name, ', ') FROM club_advisors a
+                 JOIN teachers t ON t.id = a.teacher_id WHERE a.club_id = k.id AND a.ended_at IS NULL) AS advisors
        FROM clubs k LEFT JOIN groups g ON g.id = k.group_id
        ORDER BY k.is_active DESC, k.name`,
     )
@@ -132,7 +136,26 @@ export function getClub(db: DB, id: number) {
     joined_at: string;
     member_status: string | null;
   }[];
-  return { club, officers, pastOfficers, members };
+  const advisors = db
+    .prepare(
+      `SELECT a.id, a.started_at, a.ended_at, t.id AS teacher_id, t.first_name, t.last_name, t.email, t.branch,
+              gm.status AS member_status
+       FROM club_advisors a JOIN teachers t ON t.id = a.teacher_id
+       LEFT JOIN group_members gm ON gm.group_id = ? AND gm.teacher_id = t.id
+       WHERE a.club_id = ? ORDER BY a.ended_at IS NOT NULL, a.ended_at DESC, t.first_name`,
+    )
+    .all(club.group_id, id) as {
+    id: number;
+    started_at: string;
+    ended_at: string | null;
+    teacher_id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    branch: string | null;
+    member_status: string | null;
+  }[];
+  return { club, officers, pastOfficers, members, advisors };
 }
 
 export function createClub(
@@ -334,6 +357,68 @@ export function endOfficerRow(
   }
 }
 
+// ───── Danışman öğretmenler ─────
+
+/** Danışman olabilecek öğretmenler: okulda olan (ayrılmamış, silinmemiş), bu kulüpte zaten danışman olmayan */
+export function advisorCandidates(db: DB, clubId: number) {
+  return db
+    .prepare(
+      `SELECT t.id, t.first_name, t.last_name, t.email, t.branch FROM teachers t
+       WHERE t.left_at IS NULL AND t.status NOT IN ('DELETED', 'ARCHIVED', 'SUSPENDED')
+         AND NOT EXISTS (SELECT 1 FROM club_advisors a WHERE a.club_id = ? AND a.teacher_id = t.id AND a.ended_at IS NULL)
+       ORDER BY t.first_name, t.last_name`,
+    )
+    .all(clubId) as { id: number; first_name: string; last_name: string; email: string; branch: string | null }[];
+}
+
+/** Danışman ekler: öğretmen kulüp grubuna Yönetici (MANAGER) olarak eklenir */
+export function assignAdvisor(db: DB, clubId: number, teacherId: number, userId: number): number {
+  return db.transaction(() => {
+    const k = db.prepare("SELECT is_active FROM clubs WHERE id = ?").get(clubId) as { is_active: number } | undefined;
+    if (!k) throw new ClubError("Kulüp bulunamadı.");
+    if (!k.is_active) throw new ClubError("Kapatılmış kulübe danışman atanamaz.");
+    const t = db.prepare("SELECT id, email, first_name, last_name, left_at, status FROM teachers WHERE id = ?").get(teacherId) as
+      | { id: number; email: string; first_name: string; last_name: string; left_at: string | null; status: string }
+      | undefined;
+    if (!t) throw new ClubError("Öğretmen bulunamadı.");
+    if (t.left_at || ["DELETED", "ARCHIVED", "SUSPENDED"].includes(t.status)) {
+      throw new ClubError(`${t.first_name} ${t.last_name} okulda değil.`);
+    }
+    if (db.prepare("SELECT 1 FROM club_advisors WHERE club_id = ? AND teacher_id = ? AND ended_at IS NULL").get(clubId, teacherId)) {
+      throw new ClubError(`${t.first_name} ${t.last_name} bu kulübün zaten danışmanı.`);
+    }
+    const g = clubGroup(db, clubId);
+    const id = Number(db.prepare("INSERT INTO club_advisors (club_id, teacher_id) VALUES (?, ?)").run(clubId, teacherId).lastInsertRowid);
+    const member = db
+      .prepare("INSERT OR IGNORE INTO group_members (group_id, role, teacher_id, member_email) VALUES (?, 'MANAGER', ?, ?)")
+      .run(g.id, teacherId, t.email);
+    if (member.changes) enqueue(db, "ADD_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: t.email, role: "MANAGER" });
+    logAction(db, userId, "club.advisor_assign", "club", clubId, { teacherId });
+    return id;
+  })();
+}
+
+/** Danışmanlığı bitirir: öğretmen kulüp grubundan çıkarılır */
+export function endAdvisor(db: DB, advisorId: number, userId: number) {
+  db.transaction(() => {
+    const a = db
+      .prepare(
+        `SELECT a.id, a.club_id, a.teacher_id, t.email FROM club_advisors a JOIN teachers t ON t.id = a.teacher_id
+         WHERE a.id = ? AND a.ended_at IS NULL`,
+      )
+      .get(advisorId) as { id: number; club_id: number; teacher_id: number; email: string } | undefined;
+    if (!a) throw new ClubError("Aktif danışmanlık bulunamadı.");
+    db.prepare("UPDATE club_advisors SET ended_at = datetime('now') WHERE id = ?").run(a.id);
+    const g = db
+      .prepare("SELECT g.id, g.email FROM clubs k JOIN groups g ON g.id = k.group_id WHERE k.id = ?")
+      .get(a.club_id) as { id: number; email: string } | undefined;
+    if (g && db.prepare("DELETE FROM group_members WHERE group_id = ? AND teacher_id = ?").run(g.id, a.teacher_id).changes) {
+      enqueue(db, "REMOVE_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: a.email });
+    }
+    logAction(db, userId, "club.advisor_end", "club", a.club_id, { teacherId: a.teacher_id });
+  })();
+}
+
 /** Kulübe eklemek için öğrenci arama (en fazla 20) */
 export function searchActiveStudents(db: DB, q: string) {
   const t = q.trim();
@@ -395,6 +480,8 @@ export function closeClub(db: DB, clubId: number, userId: number) {
       )
       .all(clubId) as Parameters<typeof endOfficerRow>[1][];
     for (const r of roles) endOfficerRow(db, r);
+    // Danışmanlıklar biter; grup üyelikleri aşağıda grupla birlikte gider
+    db.prepare("UPDATE club_advisors SET ended_at = datetime('now') WHERE club_id = ? AND ended_at IS NULL").run(clubId);
 
     db.prepare("DELETE FROM club_members WHERE club_id = ?").run(clubId);
     db.prepare("UPDATE clubs SET is_active = 0 WHERE id = ?").run(clubId);

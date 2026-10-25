@@ -97,7 +97,7 @@ export function TeacherControls({
             value={draft.branch}
             onChange={(e: { target: { value: string } }) => setDraft((d) => ({ ...d, branch: e.target.value }))}
           />
-          <p className="text-xs text-helper">E-posta adresi değişmez; Google&apos;daki görünen ad güncellenir.</p>
+          <p className="text-xs text-helper">Google&apos;daki görünen ad güncellenir. Adres, e-postanın yanındaki kalemle değiştirilir.</p>
           {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Kaydedilemedi" subtitle={error} />}
         </div>
       </Modal>

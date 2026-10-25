@@ -38,6 +38,7 @@ export default async function ClubsPage() {
             <TableRow>
               <TableHeader>Kulüp</TableHeader>
               <TableHeader>Grup adresi</TableHeader>
+              <TableHeader>Danışman</TableHeader>
               <TableHeader>Üye</TableHeader>
               <TableHeader>Görevli</TableHeader>
               <TableHeader>Durum</TableHeader>
@@ -46,7 +47,7 @@ export default async function ClubsPage() {
           <TableBody>
             {clubs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-secondary">
+                <TableCell colSpan={6} className="text-secondary">
                   Henüz kulüp yok.
                 </TableCell>
               </TableRow>
@@ -63,6 +64,7 @@ export default async function ClubsPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{k.email}</TableCell>
+                  <TableCell>{k.advisors ?? (k.is_active ? <span className="text-support-warning">Atanmamış</span> : "—")}</TableCell>
                   <TableCell className="tabular-nums">{k.members}</TableCell>
                   <TableCell className="tabular-nums">{k.officers}</TableCell>
                   <TableCell>

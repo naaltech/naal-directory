@@ -13,6 +13,8 @@ import {
   Tile,
 } from "@carbon/react";
 import { ArrowLeft } from "@carbon/icons-react";
+import { ChangeEmail } from "@/components/change-email.tsx";
+import { ResetPassword } from "@/components/reset-password.tsx";
 import { RevealPassword } from "@/components/reveal-password.tsx";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
@@ -72,6 +74,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <dl className="grid grid-cols-2 gap-6 sm:grid-cols-3">
             <Field label="E-posta">
               <span className="font-mono">{s.email}</span>
+              {user.role !== "VIEWER" && s.status !== "DELETED" && s.status !== "ARCHIVED" && <ChangeEmail email={s.email} studentId={s.id} />}
             </Field>
             <Field label="Okul no">{s.school_no}</Field>
             <Field label="Şube">
@@ -106,10 +109,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </p>
           {user.role === "VIEWER" ? (
             <p className="text-sm text-secondary">Görüntüleyici rolü şifre göremez.</p>
-          ) : s.has_password ? (
-            <RevealPassword studentId={s.id} />
           ) : (
-            <p className="text-sm text-secondary">Kayıtlı ilk şifre yok.</p>
+            <div className="space-y-3">
+              {s.has_password ? <RevealPassword studentId={s.id} /> : <p className="text-sm text-secondary">Kayıtlı ilk şifre yok.</p>}
+              {!["DELETED", "ARCHIVED", "SUSPENDED"].includes(s.status) && (
+                <ResetPassword studentId={s.id} live={Boolean(s.google_user_id)} />
+              )}
+            </div>
           )}
         </Tile>
       </div>

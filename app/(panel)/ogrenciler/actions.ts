@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
+import { changeEmail, EmailChangeError } from "@/lib/email-change.ts";
+import { googleTakenOrNull } from "@/lib/google/taken.ts";
+import { PasswordResetError, resetPassword } from "@/lib/password-reset.ts";
 import { LeaverError, markLeavers, undoLeave, type ExitReason } from "@/lib/leavers.ts";
 import { revealInitialPassword } from "@/lib/students.ts";
 
@@ -29,6 +32,30 @@ export async function markLeaversAction(
     return { count };
   } catch (e) {
     if (e instanceof LeaverError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function changeStudentEmailAction(studentId: number, local: string): Promise<{ email?: string; error?: string }> {
+  const user = await requireUser("ADMIN");
+  const { taken } = await googleTakenOrNull();
+  try {
+    const email = changeEmail(getDb(), { type: "student", id: studentId, local }, user.id, taken);
+    revalidateStudents([studentId]);
+    return { email };
+  } catch (e) {
+    if (e instanceof EmailChangeError) return { error: e.message };
+    throw e;
+  }
+}
+
+// Sayfa yenilemesi istemcide, şifre penceresi kapanınca yapılır (yenileme pencereyi kapatmasın diye)
+export async function resetStudentPasswordAction(studentId: number): Promise<{ password?: string; error?: string }> {
+  const user = await requireUser("ADMIN");
+  try {
+    return { password: resetPassword(getDb(), { type: "student", id: studentId }, user.id) };
+  } catch (e) {
+    if (e instanceof PasswordResetError) return { error: e.message };
     throw e;
   }
 }

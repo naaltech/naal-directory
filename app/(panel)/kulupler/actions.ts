@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/server.ts";
 import {
   addMembers,
+  assignAdvisor,
   assignOfficer,
   closeClub,
   ClubError,
   createClub,
+  endAdvisor,
   endOfficer,
   removeMember,
   searchActiveStudents,
@@ -99,4 +101,14 @@ export async function closeClubAction(clubId: number): Promise<ActionResult> {
 export async function reapplyClubSettingsAction(clubId: number): Promise<ActionResult> {
   const user = await requireUser("ADMIN");
   return run(() => reapplyClubSettings(getDb(), clubId, user.id), [`/kulupler/${clubId}`]);
+}
+
+export async function assignAdvisorAction(clubId: number, teacherId: number): Promise<ActionResult> {
+  const user = await requireUser("ADMIN");
+  return run(() => ({ id: assignAdvisor(getDb(), clubId, teacherId, user.id) }), [`/kulupler/${clubId}`, "/kulupler"]);
+}
+
+export async function endAdvisorAction(clubId: number, advisorId: number): Promise<ActionResult> {
+  const user = await requireUser("ADMIN");
+  return run(() => endAdvisor(getDb(), advisorId, user.id), [`/kulupler/${clubId}`, "/kulupler"]);
 }

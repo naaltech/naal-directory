@@ -13,10 +13,10 @@ import {
 } from "@carbon/react";
 import { ArrowLeft } from "@carbon/icons-react";
 import { requireUser } from "@/lib/auth/server.ts";
-import { clubDomain, getClub } from "@/lib/clubs.ts";
+import { advisorCandidates, clubDomain, getClub } from "@/lib/clubs.ts";
 import { getDb } from "@/lib/db.ts";
 import { ENTITY_STATUS, formatDate, OFFICER_TITLES } from "@/lib/labels.ts";
-import { AddMember, AssignOfficer, ClubSettings, EndOfficer, RemoveMember } from "./club-controls.tsx";
+import { AddMember, AssignAdvisor, AssignOfficer, ClubSettings, EndAdvisor, EndOfficer, RemoveMember } from "./club-controls.tsx";
 
 export const metadata: Metadata = { title: "Kulüp" };
 
@@ -36,9 +36,16 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
   const db = getDb();
   const data = getClub(db, id);
   if (!data) notFound();
-  const { club, officers, pastOfficers, members } = data;
+  const { club, officers, pastOfficers, members, advisors } = data;
   const canEdit = user.role !== "VIEWER" && club.is_active === 1;
   const domain = clubDomain(db).name;
+  const activeAdvisors = advisors.filter((a) => !a.ended_at);
+  const teacherOptions = canEdit
+    ? advisorCandidates(db, club.id).map((t) => ({
+        id: t.id,
+        label: `${t.first_name} ${t.last_name}${t.branch ? ` · ${t.branch}` : ""}`,
+      }))
+    : [];
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -69,6 +76,54 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="space-y-8">
+        <TableContainer
+          title="Danışman öğretmenler"
+          description={`Danışman, ${club.email ?? "kulüp grubu"} grubuna yönetici olarak eklenir: üyeleri yönetebilir, mesajları denetleyebilir.`}
+        >
+          {canEdit && <AssignAdvisor clubId={club.id} teachers={teacherOptions} />}
+          <Table size="md" aria-label="Danışman öğretmenler">
+            <TableHead>
+              <TableRow>
+                <TableHeader>Öğretmen</TableHeader>
+                <TableHeader>Branş</TableHeader>
+                <TableHeader>E-posta</TableHeader>
+                <TableHeader>Grup yöneticiliği</TableHeader>
+                <TableHeader>Başlangıç</TableHeader>
+                {canEdit && <TableHeader aria-label="İşlem" />}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeAdvisors.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={canEdit ? 6 : 5} className="text-secondary">
+                    Danışman atanmamış.
+                  </TableCell>
+                </TableRow>
+              )}
+              {activeAdvisors.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell>
+                    <Link href={`/ogretmenler/${a.teacher_id}`} className="text-interactive hover:underline">
+                      {a.first_name} {a.last_name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{a.branch ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-sm">{a.email}</TableCell>
+                  <TableCell>
+                    <StatusTag status={a.member_status} />
+                  </TableCell>
+                  <TableCell>{formatDate(a.started_at)}</TableCell>
+                  {canEdit && (
+                    <TableCell className="text-right">
+                      <EndAdvisor clubId={club.id} advisorId={a.id} name={`${a.first_name} ${a.last_name}`} />
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
         <TableContainer
           title="Yönetim kadrosu"
           description={`Takma adlar (isim@${domain}) öğrencinin kendi hesabına eklenir.`}
@@ -169,6 +224,35 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             </TableBody>
           </Table>
         </TableContainer>
+
+        {advisors.some((a) => a.ended_at) && (
+          <TableContainer title="Önceki danışmanlar">
+            <Table size="sm" aria-label="Önceki danışmanlar">
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Öğretmen</TableHeader>
+                  <TableHeader>Dönem</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {advisors
+                  .filter((a) => a.ended_at)
+                  .map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <Link href={`/ogretmenler/${a.teacher_id}`} className="text-interactive hover:underline">
+                          {a.first_name} {a.last_name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(a.started_at)} – {formatDate(a.ended_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
         {pastOfficers.length > 0 && (
           <TableContainer title="Önceki görevliler">

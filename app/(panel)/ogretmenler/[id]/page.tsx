@@ -13,6 +13,8 @@ import {
   Tile,
 } from "@carbon/react";
 import { ArrowLeft } from "@carbon/icons-react";
+import { ChangeEmail } from "@/components/change-email.tsx";
+import { ResetPassword } from "@/components/reset-password.tsx";
 import { RevealPassword } from "@/components/reveal-password.tsx";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
@@ -40,7 +42,7 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
   const db = getDb();
   const data = getTeacher(db, id);
   if (!data) notFound();
-  const { teacher: t, groups } = data;
+  const { teacher: t, groups, clubs } = data;
   const jobs = pendingJobs(db, "teacher", id);
   const st = ENTITY_STATUS[t.status] ?? { label: t.status, type: "gray" as const };
   const days = teacherRetentionDays(db);
@@ -77,6 +79,7 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
           <dl className="grid grid-cols-2 gap-6 sm:grid-cols-3">
             <Field label="E-posta">
               <span className="font-mono">{t.email}</span>
+              {user.role !== "VIEWER" && t.status !== "DELETED" && t.status !== "ARCHIVED" && <ChangeEmail email={t.email} teacherId={t.id} />}
             </Field>
             <Field label="Branş">{t.branch ?? "—"}</Field>
             <Field label="OU">
@@ -98,13 +101,29 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
           <p className="mb-4 text-xs text-helper">Öğretmen ilk girişte şifresini değiştirir. Görüntüleme kayda geçer.</p>
           {user.role === "VIEWER" ? (
             <p className="text-sm text-secondary">Görüntüleyici rolü şifre göremez.</p>
-          ) : t.has_password ? (
-            <RevealPassword teacherId={t.id} />
           ) : (
-            <p className="text-sm text-secondary">Kayıtlı ilk şifre yok.</p>
+            <div className="space-y-3">
+              {t.has_password ? <RevealPassword teacherId={t.id} /> : <p className="text-sm text-secondary">Kayıtlı ilk şifre yok.</p>}
+              {!["DELETED", "ARCHIVED", "SUSPENDED"].includes(t.status) && (
+                <ResetPassword teacherId={t.id} live={Boolean(t.google_user_id)} />
+              )}
+            </div>
           )}
         </Tile>
       </div>
+
+      {clubs.length > 0 && (
+        <Tile className="mb-8">
+          <h2 className="mb-2 text-sm text-secondary">Danışman olduğu kulüpler</h2>
+          <p className="flex flex-wrap gap-x-4 gap-y-1">
+            {clubs.map((k) => (
+              <Link key={k.id} href={`/kulupler/${k.id}`} className="text-interactive hover:underline">
+                {k.name}
+              </Link>
+            ))}
+          </p>
+        </Tile>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-2">
         <TableContainer title="Gruplar">

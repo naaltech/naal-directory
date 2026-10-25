@@ -209,26 +209,50 @@ const handlers: Record<string, Handler> = {
   },
 
   async UPDATE_USER(
-    p: { email: string; orgUnitPath?: string; firstName?: string; lastName?: string; suspended?: boolean },
+    p: {
+      email: string;
+      newEmail?: string;
+      orgUnitPath?: string;
+      firstName?: string;
+      lastName?: string;
+      suspended?: boolean;
+      resetPassword?: boolean;
+    },
     job,
     { google, db, apply },
   ) {
     const table = personTable(job.entity_type);
+    const id = Number(job.entity_id);
     const body: Record<string, unknown> = {};
     if (p.orgUnitPath) body.orgUnitPath = p.orgUnitPath;
     if (p.suspended === false) body.suspended = false; // okula geri dönen
+    // Adres değişikliği: Google eski adresi takma ad olarak tutar. Tekrar çalışırsa eski adres takma ad olarak
+    // aynı hesaba çıktığı için istek yine aynı hesaba gider.
+    if (p.newEmail) body.primaryEmail = p.newEmail;
+    if (p.resetPassword) {
+      // Şifre kuyrukta durmaz; sıfırlamada kaydedilen son şifre gönderilir
+      const enc = db.prepare(`SELECT initial_password_enc FROM ${table} WHERE id = ?`).pluck().get(id) as string | null | undefined;
+      if (!enc) throw new PermanentError("Kayıtlı şifre yok.");
+      body.password = decryptSecret(enc);
+      body.changePasswordAtNextLogin = true;
+    }
     if (p.firstName || p.lastName) {
       // Google ad nesnesini bütün ister; değişmeyen kısım güncel kayıttan alınır
-      const st = db.prepare(`SELECT first_name, last_name FROM ${table} WHERE email = ?`).get(p.email) as
+      const st = db.prepare(`SELECT first_name, last_name FROM ${table} WHERE id = ?`).get(id) as
         | { first_name: string; last_name: string }
         | undefined;
       body.name = { givenName: p.firstName ?? st?.first_name, familyName: p.lastName ?? st?.last_name };
     }
-    await google.send({ method: "PUT", path: `users/${enc(p.email)}`, body });
+    try {
+      await google.send({ method: "PUT", path: `users/${enc(p.email)}`, body });
+    } catch (e) {
+      if (p.newEmail && is(e, 409)) throw new PermanentError(`${p.newEmail} Google'da başka bir hesap ya da takma ad olarak kullanılıyor.`);
+      throw e;
+    }
     apply(() => {
-      db.prepare(`UPDATE ${table} SET last_synced_at = datetime('now') WHERE email = ?`).run(p.email);
+      db.prepare(`UPDATE ${table} SET last_synced_at = datetime('now') WHERE id = ?`).run(id);
       if (p.suspended === false) {
-        db.prepare(`UPDATE ${table} SET status = 'ACTIVE', suspended_at = NULL WHERE email = ? AND status = 'SUSPENDED'`).run(p.email);
+        db.prepare(`UPDATE ${table} SET status = 'ACTIVE', suspended_at = NULL WHERE id = ? AND status = 'SUSPENDED'`).run(id);
       }
     });
     return "updated";

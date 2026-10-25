@@ -12,6 +12,7 @@ import {
   TableToolbarContent,
   Tag,
 } from "@carbon/react";
+import { LinkButton } from "@/components/link-button.tsx";
 import { PageHeader } from "@/components/page-header.tsx";
 import { UrlDropdown, UrlSearch } from "@/components/url-controls.tsx";
 import { requireUser } from "@/lib/auth/server.ts";
@@ -35,7 +36,16 @@ export default async function TeachersPage({ searchParams }: { searchParams: Pro
       <PageHeader
         title="Öğretmenler"
         description={`Öğretmen hesapları ad.soyad@${domain} biçiminde açılır ve /Ogretmenler OU'suna yerleşir.`}
-        actions={user.role !== "VIEWER" && <AddTeachers domain={domain} />}
+        actions={
+          user.role !== "VIEWER" && (
+            <div className="flex gap-2">
+              <LinkButton href="/ogretmenler/sifreler" kind="tertiary" icon="password">
+                Şifre listesi
+              </LinkButton>
+              <AddTeachers domain={domain} />
+            </div>
+          )
+        }
       />
       <TableContainer title={`${rows.length} öğretmen`}>
         <TableToolbar aria-label="Filtreler">

@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth/server.ts";
 import { getClass } from "@/lib/classes.ts";
 import { getDb } from "@/lib/db.ts";
 import { classPasswordSlips } from "@/lib/students.ts";
-import { PrintButton } from "./print-button.tsx";
+import { PrintButton } from "@/components/print-button.tsx";
 
 export const metadata: Metadata = { title: "Şifre listesi", referrer: "no-referrer" };
 
