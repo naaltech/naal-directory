@@ -1,0 +1,21 @@
+# /etc/caddy/Caddyfile — HTTPS sertifikasını Caddy kendisi alır ve yeniler.
+# Alan adını değiştirin; DNS A kaydı VPS'in IP'sini göstermeli.
+hesap.naal.org.tr {
+	encode zstd gzip
+
+	# Okul listesi PDF yüklemesi (panel 25 MB'a kadar kabul ediyor)
+	request_body {
+		max_size 30MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:3000
+}

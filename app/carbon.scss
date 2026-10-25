@@ -1,0 +1,18 @@
+// IBM Carbon Design System. Fontlar (IBM Plex) yerel @ibm/plex paketinden gelir.
+@use '@carbon/react/scss/config' with (
+  $prefix: 'cds'
+);
+@use '@carbon/react';
+@use '@carbon/react/scss/theme';
+@use '@carbon/react/scss/themes';
+
+// Kök tema: açık (white); işletim sistemi koyu moddaysa g100
+:root {
+  @include theme.theme(themes.$white);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    @include theme.theme(themes.$g100);
+  }
+}

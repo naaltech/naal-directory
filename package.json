@@ -1,0 +1,41 @@
+{
+  "name": "k12-google",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "admin": "node --no-warnings scripts/admin.ts",
+    "google:check": "node scripts/google-check.mjs",
+    "roster:parse": "node --no-warnings scripts/parse-roster.ts",
+    "db:migrate": "node --no-warnings scripts/migrate.ts",
+    "sync": "node --no-warnings scripts/sync.ts",
+    "retention": "node --no-warnings scripts/retention.ts",
+    "backup": "node --no-warnings scripts/backup.ts"
+  },
+  "dependencies": {
+    "@carbon/react": "^1.119.0",
+    "better-sqlite3": "^13.0.3",
+    "next": "^15.5.28",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.1.10",
+    "react-dom": "^19.1.10",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.4",
+    "sass": "^1.106.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

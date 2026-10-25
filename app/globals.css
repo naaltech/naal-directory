@@ -1,0 +1,46 @@
+/* Tailwind: sadece tema ve yardımcı sınıflar. Preflight (CSS sıfırlama) bilerek yok,
+   çünkü Carbon kendi sıfırlamasını getiriyor; ikisi birlikte bileşenleri bozuyor.
+   Yardımcı sınıflar bilerek @layer DIŞINDA: Carbon'un CSS'i katmansız olduğundan katmanlı
+   kurallar her zaman ona yenilir. Bu dosya Carbon'dan sonra yüklendiği için eşit
+   özgüllükte Tailwind sınıfları kazanır. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+@theme {
+  /* Tailwind renklerini Carbon tokenlarına bağla: bg-layer, text-secondary, border-subtle ... */
+  --color-background: var(--cds-background);
+  --color-layer: var(--cds-layer-01);
+  --color-layer-2: var(--cds-layer-02);
+  --color-primary: var(--cds-text-primary);
+  --color-secondary: var(--cds-text-secondary);
+  --color-helper: var(--cds-text-helper);
+  --color-subtle: var(--cds-border-subtle-01);
+  --color-interactive: var(--cds-interactive);
+  --color-support-error: var(--cds-support-error);
+  --color-support-success: var(--cds-support-success);
+  --color-support-warning: var(--cds-support-warning);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+body {
+  background: var(--cds-background);
+  color: var(--cds-text-primary);
+}
+
+/* Yazdırırken (şifre listesi) panel çerçevesi gizlenir */
+@media print {
+  .cds--header,
+  .cds--side-nav,
+  .cds--skip-to-content {
+    display: none !important;
+  }
+  .cds--content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
