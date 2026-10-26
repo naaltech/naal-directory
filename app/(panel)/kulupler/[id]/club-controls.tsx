@@ -49,7 +49,7 @@ export function AddMember({ clubId }: { clubId: number }) {
   const [pending, start] = useTransition();
   return (
     <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
-      <div className="min-w-72 flex-1">
+      <div className="w-full sm:w-auto sm:min-w-72 sm:flex-1">
         <StudentPicker id="member-picker" value={student} onChange={setStudent} />
       </div>
       <Button
@@ -159,7 +159,7 @@ export function AssignAdvisor({ clubId, teachers }: { clubId: number; teachers: 
   const [pending, start] = useTransition();
   return (
     <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
-      <div className="min-w-72 flex-1">
+      <div className="w-full sm:w-auto sm:min-w-72 sm:flex-1">
         <ComboBox<Option>
           id="advisor-picker"
           titleText="Öğretmen"
@@ -307,7 +307,7 @@ export function ClubSettings({
     setError(undefined);
   };
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <Button
         kind="tertiary"
         renderIcon={Edit}

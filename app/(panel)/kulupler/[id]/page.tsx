@@ -189,7 +189,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             groupId={club.group_id}
             groupEmail={club.email}
             aliases={listGroupAliases(db, club.group_id)}
-            domains={groupDomains(db).map((d) => d.name)}
+            domains={groupDomains(db, "CLUB").map((d) => d.name)}
             canEdit={canEdit}
           />
         )}

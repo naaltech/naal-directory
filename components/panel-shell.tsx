@@ -96,8 +96,8 @@ export function PanelShell({
 
           {/* Carbon'un lg kırılımında (66rem) yan menü sabit ve 16rem genişlikte; içerik onun yanından başlar.
               Daha dar ekranda menü gizli, sol boşluk gereksiz. Carbon'un ".cds--side-nav ~ .cds--content"
-              kuralını (3rem) ezmek için ! gerekiyor. */}
-          <Content id="main-content" className="ml-0! min-h-screen min-[66rem]:ml-64!">
+              kuralını (3rem) ezmek için ! gerekiyor. Telefonda kenar boşluğu da 2rem yerine 1rem. */}
+          <Content id="main-content" className="ml-0! min-h-screen px-4! py-6! sm:p-8! min-[66rem]:ml-64!">
             {children}
           </Content>
         </>
