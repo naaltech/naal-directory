@@ -78,8 +78,8 @@ export function NewGroup({ domains }: { domains: string[] }) {
             }}
             data-modal-primary-focus
           />
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
+          <div className="flex flex-wrap items-end gap-x-2">
+            <div className="w-full sm:w-auto sm:flex-1">
               <TextInput
                 id="group-local"
                 labelText="Grup adresi"
@@ -91,7 +91,7 @@ export function NewGroup({ domains }: { domains: string[] }) {
                 }}
               />
             </div>
-            <div className="w-56 pb-6">
+            <div className="w-full pt-2 sm:w-56 sm:pt-0 sm:pb-6">
               <Select id="group-domain" labelText="Alan adı" hideLabel value={domain} onChange={(e) => setDomain(e.target.value)}>
                 {domains.map((d) => (
                   <SelectItem key={d} value={d} text={`@${d}`} />

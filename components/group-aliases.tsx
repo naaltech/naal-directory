@@ -57,7 +57,7 @@ export function GroupAliases({
     >
       {canEdit && (
         <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
-          <div className="min-w-48 flex-1">
+          <div className="w-full sm:w-auto sm:min-w-48 sm:flex-1">
             <TextInput
               id={`alias-local-${groupId}`}
               labelText="Alt adres"
@@ -72,7 +72,7 @@ export function GroupAliases({
               }}
             />
           </div>
-          <div className="w-64">
+          <div className="w-full sm:w-64">
             <Select id={`alias-domain-${groupId}`} labelText="Alan adı" value={domain} onChange={(e) => setDomain(e.target.value)}>
               {domains.map((d) => (
                 <SelectItem key={d} value={d} text={`@${d}`} />

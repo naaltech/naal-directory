@@ -28,6 +28,27 @@ body {
   color: var(--cds-text-primary);
 }
 
+/* Tablolardaki e-posta gibi tek parça uzun metinler (font-mono hücreler) dar ekranda satır kırar;
+   yoksa tablo telefonda ekranın birkaç katı genişliyor */
+.cds--data-table td.font-mono {
+  overflow-wrap: anywhere;
+  min-width: 12ch;
+}
+
+/* Telefonda tablo araç çubuğundaki arama ve filtreler alt alta dizilir (Carbon tek satır, sabit yükseklik) */
+@media (max-width: 40rem) {
+  .cds--table-toolbar,
+  .cds--toolbar-content {
+    height: auto;
+  }
+  .cds--toolbar-content {
+    flex-wrap: wrap;
+  }
+  .cds--toolbar-content > * {
+    flex: 1 1 100%;
+  }
+}
+
 /* Yazdırırken (şifre listesi) panel çerçevesi gizlenir */
 @media print {
   .cds--header,

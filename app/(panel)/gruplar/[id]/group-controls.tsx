@@ -34,7 +34,7 @@ export function AddGroupTeacher({ groupId, teachers }: { groupId: number; teache
   const [pending, start] = useTransition();
   return (
     <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
-      <div className="min-w-72 flex-1">
+      <div className="w-full sm:w-auto sm:min-w-72 sm:flex-1">
         <ComboBox<Option>
           id="group-teacher-picker"
           titleText="Öğretmen"
@@ -52,7 +52,7 @@ export function AddGroupTeacher({ groupId, teachers }: { groupId: number; teache
           }
         />
       </div>
-      <div className="w-40">
+      <div className="w-full sm:w-40">
         <Select id="group-teacher-role" labelText="Rol" value={role} onChange={(e) => setRole(e.target.value as Role)}>
           {Object.entries(GROUP_ROLES).map(([k, v]) => (
             <SelectItem key={k} value={k} text={v} />
@@ -171,7 +171,7 @@ export function GroupSettings({
     setError(undefined);
   };
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <Button
         kind="tertiary"
         renderIcon={Edit}

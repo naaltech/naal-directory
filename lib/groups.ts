@@ -19,11 +19,14 @@ export type MemberRole = (typeof MEMBER_ROLES)[number];
 
 export class GroupError extends Error {}
 
-/** Grup ve alt adres için kullanılabilen alan adları: öğretmen ve kulüp alan adı */
-export function groupDomains(db: DB) {
+/**
+ * Grup ve alt adres için kullanılabilen alan adları: öğretmen ve kulüp alan adı. Seçicide ilk gelen `first`
+ * (öğretmen gruplarında öğretmen, kulüplerde kulüp alan adı).
+ */
+export function groupDomains(db: DB, first: "TEACHER" | "CLUB" = "TEACHER") {
   return db
-    .prepare("SELECT id, name, kind FROM domains WHERE kind IN ('TEACHER', 'CLUB') ORDER BY kind DESC")
-    .all() as { id: number; name: string; kind: "TEACHER" | "CLUB" }[];
+    .prepare("SELECT id, name, kind FROM domains WHERE kind IN ('TEACHER', 'CLUB') ORDER BY kind <> ?, kind")
+    .all(first) as { id: number; name: string; kind: "TEACHER" | "CLUB" }[];
 }
 
 /** "yerel" ya da "yerel@alanadi" → doğrulanmış tam adres ve alan adı kaydı */

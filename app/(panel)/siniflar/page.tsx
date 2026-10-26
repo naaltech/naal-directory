@@ -37,7 +37,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
         description={`${year?.name ?? "Güncel yıl yok"} şubeleri${picked ? " (geçmiş yıl)" : ""}. Güncel yıl, onaylanan son listenin yılıdır. Sınıf grubu adresi yıllar boyunca aynı kalır, sadece üyeleri değişir.`}
         actions={
           years.filter((y) => !y.is_current).length > 0 && (
-            <div className="w-56">
+            <div className="w-full sm:w-56">
               <UrlDropdown
                 name="yil"
                 label="Eğitim yılı"
