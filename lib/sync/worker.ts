@@ -9,7 +9,7 @@
 import type { DB } from "../db.ts";
 import { GoogleApiError } from "../google/api.ts";
 import type { Google } from "./google.ts";
-import { markEntityError, PermanentError, runHandler, type Job, type Outcome } from "./handlers.ts";
+import { markEntityError, PermanentError, RetryLaterError, runHandler, type Job, type Outcome } from "./handlers.ts";
 
 export const MAX_ATTEMPTS = 5;
 const LOCK_KEY = "sync.lock";
@@ -102,6 +102,7 @@ function blocker(db: DB, job: Job): { id: number; status: string } | undefined {
 }
 
 function isTransient(e: unknown) {
+  if (e instanceof RetryLaterError) return true;
   if (e instanceof GoogleApiError) return e.transient;
   return e instanceof TypeError; // fetch ağ hatası
 }

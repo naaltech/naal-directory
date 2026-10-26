@@ -28,6 +28,12 @@ export interface Ctx {
 /** Tekrar denemekle düzelmeyecek hata: iş doğrudan FAILED olur */
 export class PermanentError extends Error {}
 
+/** Google'ın geçici olarak reddettiği istek (ör. yeni açılmış gruba hemen takma ad): iş beklemeyle yeniden dener */
+export class RetryLaterError extends Error {}
+
+/** Yeni açılan grup Google'da birkaç dakika "Not Authorized" (403) dönebilir; bu kadar deneme beklenir */
+const NEW_GROUP_RETRIES = 3;
+
 const is = (e: unknown, ...status: number[]) => e instanceof GoogleApiError && status.includes(e.status);
 
 /**
@@ -413,6 +419,12 @@ const handlers: Record<string, Handler> = {
       try {
         await google.send({ method: "POST", path: `groups/${enc(p.groupEmail!)}/aliases`, body: { alias: p.alias } });
       } catch (e) {
+        if (is(e, 403)) {
+          if (job.attempts + 1 < NEW_GROUP_RETRIES) throw new RetryLaterError(`${(e as Error).message} (grup yeni açıldıysa Google'ın hazır olması bekleniyor)`);
+          throw new PermanentError(
+            `${(e as Error).message}. Grup Google'da hazır olduğu hâlde alt adres eklenemiyor: ${p.alias.split("@")[1]} alan adının Workspace'te doğrulanmış ikincil alan adı olduğunu ve ${process.env.GOOGLE_ADMIN_IMPERSONATE ?? "taklit edilen yönetici"} hesabının grup yönetme yetkisini kontrol edin.`,
+          );
+        }
         if (!is(e, 409)) throw e;
         // groups/{takma ad} sahibi grubu döndürür; kullanıcıya aitse 404
         const owner = await google.get<{ email: string }>(`groups/${enc(p.alias)}`).catch(() => null);
