@@ -196,6 +196,18 @@ export class DryRunGoogle implements Google {
       this.users.delete(alias);
       return result();
     }
+    if ((m = path.match(/^groups\/([^/]+)\/aliases$/)) && method === "POST") {
+      const gr = this.groups.get(decodeURIComponent(m[1]).toLowerCase()) ?? this.notFound(path);
+      if (this.taken(body.alias)) conflict();
+      this.groups.set(body.alias.toLowerCase(), gr);
+      return result();
+    }
+    if ((m = path.match(/^groups\/([^/]+)\/aliases\/([^/]+)$/)) && method === "DELETE") {
+      const alias = decodeURIComponent(m[2]).toLowerCase();
+      if (!this.groups.has(alias)) this.notFound(path);
+      this.groups.delete(alias);
+      return result();
+    }
     if ((m = path.match(/^groups\/([^/]+)$/)) && (method === "PUT" || method === "DELETE")) {
       const key = decodeURIComponent(m[1]).toLowerCase();
       const gr = this.groups.get(key) ?? this.notFound(path);

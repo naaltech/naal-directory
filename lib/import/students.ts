@@ -110,6 +110,7 @@ export function dbEmailTaken(db: DB) {
     UNION ALL SELECT 1 FROM teachers WHERE email = @e AND status <> 'DELETED'
     UNION ALL SELECT 1 FROM groups WHERE email = @e
     UNION ALL SELECT 1 FROM club_officers WHERE alias_email = @e AND ended_at IS NULL
+    UNION ALL SELECT 1 FROM group_aliases WHERE alias_email = @e AND removed_at IS NULL
     LIMIT 1`);
   return (email: string) => stmt.get({ e: email.toLowerCase() }) !== undefined;
 }

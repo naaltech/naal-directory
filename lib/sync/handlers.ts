@@ -50,12 +50,24 @@ export const CLUB_GROUP_SETTINGS: Record<string, string> = {
   primaryLanguage: "tr",
 };
 
-/** Kulüp grubuysa dış e-posta ayarlarını uygular ve geri okuyup doğrular */
+/** Öğretmen grubu dışarıdan e-posta almıyorsa: okul içinden herkes yazabilir */
+export const INTERNAL_GROUP_SETTINGS: Record<string, string> = {
+  ...CLUB_GROUP_SETTINGS,
+  whoCanPostMessage: "ALL_IN_DOMAIN_CAN_POST",
+};
+
+/**
+ * Kulüp grubuna ve öğretmen grubuna (kind = CUSTOM) e-posta ayarlarını uygular ve geri okuyup doğrular.
+ * Öğretmen grubunda dış e-posta, panelde grubun "dışarıdan e-posta alsın" seçeneğine bağlı.
+ */
 async function applyClubSettings(db: DB, google: Google, groupId: number, email: string) {
-  const kind = db.prepare("SELECT kind FROM groups WHERE id = ?").pluck().get(groupId);
-  if (kind !== "CLUB") return;
-  const got = await google.patchGroupSettings(email, CLUB_GROUP_SETTINGS);
-  const wrong = ["whoCanPostMessage", "messageModerationLevel"].filter((k) => got[k] !== CLUB_GROUP_SETTINGS[k]);
+  const g = db.prepare("SELECT kind, allow_external FROM groups WHERE id = ?").get(groupId) as
+    | { kind: string; allow_external: number }
+    | undefined;
+  if (g?.kind !== "CLUB" && g?.kind !== "CUSTOM") return;
+  const want = g.kind === "CLUB" || g.allow_external ? CLUB_GROUP_SETTINGS : INTERNAL_GROUP_SETTINGS;
+  const got = await google.patchGroupSettings(email, want);
+  const wrong = ["whoCanPostMessage", "messageModerationLevel"].filter((k) => got[k] !== want[k]);
   if (wrong.length) {
     throw new PermanentError(
       `${email} ayarları uygulanamadı (${wrong.map((k) => `${k}=${got[k]}`).join(", ")}). Yönetici konsolunda Groups for Business > dışarıdan e-posta iznini kontrol edin.`,
@@ -90,7 +102,7 @@ export function ouInUse(db: DB, path: string): boolean {
   );
 }
 
-/** Grup silinebilir mi: kapatılmış kulüp ya da güncel yılda kullanılmayan, üyesiz sınıf grubu */
+/** Grup silinebilir mi: kapatılmış kulüp, kapatılmış öğretmen grubu ya da güncel yılda kullanılmayan, üyesiz sınıf grubu */
 export function groupDeletable(db: DB, groupId: number): string | null {
   const g = db.prepare("SELECT id, kind, status FROM groups WHERE id = ?").get(groupId) as
     | { id: number; kind: string; status: string }
@@ -99,6 +111,10 @@ export function groupDeletable(db: DB, groupId: number): string | null {
   if (g.kind === "CLUB") {
     const active = db.prepare("SELECT is_active FROM clubs WHERE group_id = ?").pluck().get(groupId);
     if (active !== 0) return "Kulüp hâlâ açık.";
+    return null;
+  }
+  if (g.kind === "CUSTOM") {
+    if (g.status !== "ARCHIVED") return "Öğretmen grubu panelde kapatılmamış.";
     return null;
   }
   if (g.kind === "CLASS") {
@@ -309,7 +325,7 @@ const handlers: Record<string, Handler> = {
     return "updated";
   },
 
-  // Geri alınamaz: kayıt tekrar kontrol edilir (kapatılmış kulüp ya da kullanılmayan, üyesiz sınıf grubu)
+  // Geri alınamaz: kayıt tekrar kontrol edilir (kapatılmış kulüp/öğretmen grubu ya da kullanılmayan, üyesiz sınıf grubu)
   async DELETE_GROUP(p: { email: string }, job, { google, db, apply }) {
     const g = db.prepare("SELECT email FROM groups WHERE id = ?").get(Number(job.entity_id)) as { email: string } | undefined;
     if (!g || g.email.toLowerCase() !== p.email.toLowerCase()) throw new PermanentError("Silinecek grup kaydı eşleşmiyor.");
@@ -390,14 +406,33 @@ const handlers: Record<string, Handler> = {
     }
   },
 
-  async ADD_ALIAS(p: { email: string; alias: string }, job, { google, db, apply }) {
+  // Takma ad: öğrenci/öğretmen hesabına (kulüp görevlisi) ya da gruba (alt adres)
+  async ADD_ALIAS(p: { email?: string; groupEmail?: string; alias: string }, job, { google, db, apply }) {
+    if (job.entity_type === "group") {
+      let outcome: Outcome = "created";
+      try {
+        await google.send({ method: "POST", path: `groups/${enc(p.groupEmail!)}/aliases`, body: { alias: p.alias } });
+      } catch (e) {
+        if (!is(e, 409)) throw e;
+        // groups/{takma ad} sahibi grubu döndürür; kullanıcıya aitse 404
+        const owner = await google.get<{ email: string }>(`groups/${enc(p.alias)}`).catch(() => null);
+        if (owner?.email.toLowerCase() !== p.groupEmail!.toLowerCase()) {
+          throw new PermanentError(`${p.alias} Google'da başka bir hesap ya da grup tarafından kullanılıyor.`);
+        }
+        outcome = "exists";
+      }
+      apply(() =>
+        db.prepare("UPDATE group_aliases SET status = 'ACTIVE' WHERE alias_email = ? AND removed_at IS NULL").run(p.alias),
+      );
+      return outcome;
+    }
     let outcome: Outcome = "created";
     try {
-      await google.send({ method: "POST", path: `users/${enc(p.email)}/aliases`, body: { alias: p.alias } });
+      await google.send({ method: "POST", path: `users/${enc(p.email!)}/aliases`, body: { alias: p.alias } });
     } catch (e) {
       if (!is(e, 409)) throw e;
       const owner = await google.get<{ primaryEmail: string }>(`users/${enc(p.alias)}`).catch(() => null);
-      if (owner?.primaryEmail.toLowerCase() !== p.email.toLowerCase()) {
+      if (owner?.primaryEmail.toLowerCase() !== p.email!.toLowerCase()) {
         throw new PermanentError(`${p.alias} Google'da başka bir hesap ya da grup tarafından kullanılıyor.`);
       }
       outcome = "exists";
@@ -408,9 +443,10 @@ const handlers: Record<string, Handler> = {
     return outcome;
   },
 
-  async REMOVE_ALIAS(p: { email: string; alias: string }, job, { google }) {
+  async REMOVE_ALIAS(p: { email?: string; groupEmail?: string; alias: string }, job, { google }) {
+    const owner = job.entity_type === "group" ? `groups/${enc(p.groupEmail!)}` : `users/${enc(p.email!)}`;
     try {
-      await google.send({ method: "DELETE", path: `users/${enc(p.email)}/aliases/${enc(p.alias)}` });
+      await google.send({ method: "DELETE", path: `${owner}/aliases/${enc(p.alias)}` });
       return "removed";
     } catch (e) {
       if (is(e, 404)) return "absent";
@@ -435,6 +471,10 @@ export function markEntityError(db: DB, job: Job) {
     db.prepare(`UPDATE ${personTable(job.entity_type)} SET status = 'ERROR' WHERE id = ?`).run(Number(job.entity_id));
   }
   if (job.action === "CREATE_GROUP") db.prepare("UPDATE groups SET status = 'ERROR' WHERE id = ?").run(Number(job.entity_id));
+  if (job.action === "ADD_ALIAS" && job.entity_type === "group") {
+    const p = JSON.parse(job.payload) as { alias: string };
+    db.prepare("UPDATE group_aliases SET status = 'ERROR' WHERE alias_email = ? AND removed_at IS NULL").run(p.alias);
+  }
   if (job.action === "ADD_MEMBER") {
     const p = JSON.parse(job.payload) as { groupEmail: string; memberEmail: string };
     db.prepare(

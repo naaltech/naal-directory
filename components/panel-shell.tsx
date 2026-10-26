@@ -15,7 +15,7 @@ import {
   SkipToContent,
   Theme,
 } from "@carbon/react";
-import { Clean, Dashboard, Education, Events, Logout, Renew, Upload, UserAdmin, UserMultiple, UserProfile } from "@carbon/icons-react";
+import { Clean, Dashboard, Education, Events, Group, Logout, Renew, Upload, UserAdmin, UserMultiple, UserProfile } from "@carbon/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
@@ -26,6 +26,7 @@ const NAV = [
   { href: "/ice-aktar", label: "Liste içe aktar", icon: Upload },
   { href: "/ogrenciler", label: "Öğrenciler", icon: UserMultiple },
   { href: "/ogretmenler", label: "Öğretmenler", icon: UserProfile },
+  { href: "/gruplar", label: "Öğretmen grupları", icon: Group },
   { href: "/siniflar", label: "Sınıflar", icon: Education },
   { href: "/kulupler", label: "Kulüpler", icon: Events },
   { href: "/senkronizasyon", label: "Senkronizasyon", icon: Renew },

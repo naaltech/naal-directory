@@ -5,6 +5,7 @@
 import { logAction } from "./audit.ts";
 import type { DB } from "./db.ts";
 import { asciiFold, pickEmail, RESERVED_LOCAL_PARTS } from "./email.ts";
+import { dropGroupAliases } from "./groups.ts";
 import { dbEmailTaken } from "./import/students.ts";
 import { enqueue } from "./sync/queue.ts";
 
@@ -487,6 +488,8 @@ export function closeClub(db: DB, clubId: number, userId: number) {
     db.prepare("UPDATE clubs SET is_active = 0 WHERE id = ?").run(clubId);
 
     if (k.group_id && k.email) {
+      // Alt adresler grupla birlikte Google'dan gider
+      dropGroupAliases(db, k.group_id);
       if (k.google_group_id) {
         // Üyelikler grupla birlikte gider; ayrıca çıkarma işi gerekmez
         db.prepare("DELETE FROM group_members WHERE group_id = ?").run(k.group_id);

@@ -17,6 +17,8 @@ bir kuyruğa yazılır; kuyruk komut satırından, önce deneme olarak çalışt
 | Kulüp grubu | `kulupkodu@naal.org.tr` | Dışarıdan e-posta alabilir (aşağıya bakın) |
 | Kulüp görevlisi | Öğrencinin kendi hesabına `isim@naal.org.tr` takma adı | Görev süresince `/Kulupler`, bitince şubesine döner |
 | Öğretmenler grubu | `ogretmenler@nevzatayazal.k12.tr` | |
+| Öğretmen grubu | `idareciler@nevzatayazal.k12.tr` ya da `...@naal.org.tr` | İdareciler, rehberlik, zümreler; üyeler öğretmen (üye ya da yönetici) |
+| Alt adres | Gruba `...@nevzatayazal.k12.tr` ya da `...@naal.org.tr` takma adı | Kulüp, öğretmenler ve öğretmen gruplarına eklenir; gelen e-posta gruba düşer |
 
 - Türkçe karakterler adreste sadeleşir (ş→s, ğ→g, ı→i ...).
 - Aynı adres varsa sırasıyla ikinci ad, sonra sayı eklenir (`ayse.yilmaz2`). Adres önizlemede elle de değiştirilebilir.

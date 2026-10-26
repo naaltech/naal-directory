@@ -24,6 +24,11 @@ export const OFFICER_TITLES: Record<string, string> = {
   BOARD_MEMBER: "Yönetim kurulu üyesi",
 };
 
+export const GROUP_ROLES: Record<string, string> = {
+  MEMBER: "Üye",
+  MANAGER: "Yönetici",
+};
+
 export const JOB_STATUS: Record<string, { label: string; type: TagColor }> = {
   QUEUED: { label: "Bekliyor", type: "blue" },
   RUNNING: { label: "Çalışıyor", type: "purple" },

@@ -12,9 +12,11 @@ import {
   Tag,
 } from "@carbon/react";
 import { ArrowLeft } from "@carbon/icons-react";
+import { GroupAliases } from "@/components/group-aliases.tsx";
 import { requireUser } from "@/lib/auth/server.ts";
 import { advisorCandidates, clubDomain, getClub } from "@/lib/clubs.ts";
 import { getDb } from "@/lib/db.ts";
+import { groupDomains, listGroupAliases } from "@/lib/groups.ts";
 import { ENTITY_STATUS, formatDate, OFFICER_TITLES } from "@/lib/labels.ts";
 import { AddMember, AssignAdvisor, AssignOfficer, ClubSettings, EndAdvisor, EndOfficer, RemoveMember } from "./club-controls.tsx";
 
@@ -181,6 +183,16 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             </TableBody>
           </Table>
         </TableContainer>
+
+        {club.group_id && club.email && (
+          <GroupAliases
+            groupId={club.group_id}
+            groupEmail={club.email}
+            aliases={listGroupAliases(db, club.group_id)}
+            domains={groupDomains(db).map((d) => d.name)}
+            canEdit={canEdit}
+          />
+        )}
 
         <TableContainer title={`${members.length} üye`} description={`Üyeler ${club.email} grubuna eklenir.`}>
           {canEdit && <AddMember clubId={club.id} />}
