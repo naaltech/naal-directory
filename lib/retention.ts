@@ -25,13 +25,16 @@ const SOURCES: { type: Kind; table: string; exited: string; reason: string }[] =
   { type: "teacher", table: "teachers", exited: "x.left_at IS NOT NULL", reason: "'TEACHER_LEFT'" },
 ];
 
-/** Vadesi gelmiş ve kuyrukta bekleyen işi olmayan hesaplar */
+/**
+ * Vadesi gelmiş ve kuyrukta işi olmayan hesaplar. Başarısız iş de sayılır: yeniden denemek yöneticinin
+ * kararıdır, gece işi aynı hesap için her gün yeni bir iş eklememeli.
+ */
 export function dueRetention(db: DB): RetentionPlan {
   const plan: RetentionPlan = { suspend: [], remove: [] };
   for (const src of SOURCES) {
     const noPending = (action: string) =>
       `NOT EXISTS (SELECT 1 FROM sync_jobs j WHERE j.entity_type = '${src.type}' AND j.entity_id = CAST(x.id AS TEXT)
-         AND j.action = '${action}' AND j.status IN ('QUEUED', 'RUNNING'))`;
+         AND j.action = '${action}' AND j.status IN ('QUEUED', 'RUNNING', 'FAILED'))`;
     plan.suspend.push(
       ...(db
         .prepare(

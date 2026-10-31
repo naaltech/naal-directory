@@ -4,8 +4,18 @@ import { revalidatePath } from "next/cache";
 import { logAction } from "@/lib/audit.ts";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
+import { pauseAuto, resumeAuto } from "@/lib/sync/auto.ts";
 import { getRun, requestStop, RunError, startRun, type RunMode, type SyncRun } from "@/lib/sync/runner.ts";
 import { retryFailed } from "@/lib/sync/worker.ts";
+
+export async function setAutoAction(enabled: boolean): Promise<void> {
+  const user = await requireUser("ADMIN");
+  const db = getDb();
+  if (enabled) resumeAuto(db);
+  else pauseAuto(db, `${user.name} durdurdu.`);
+  logAction(db, user.id, enabled ? "sync.auto_resume" : "sync.auto_pause", "sync_run");
+  revalidatePath("/senkronizasyon");
+}
 
 export async function retryFailedAction(): Promise<number> {
   const user = await requireUser("ADMIN");

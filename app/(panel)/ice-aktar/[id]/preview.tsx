@@ -229,6 +229,15 @@ export function Preview({
         {batch.status === "PARSED" && yearInfo.problem && (
           <InlineNotification kind="error" lowContrast hideCloseButton title="Bu liste onaylanamaz" subtitle={yearInfo.problem} />
         )}
+        {batch.status === "PARSED" && summary.autoHold && summary.autoHold.length > 0 && (
+          <InlineNotification
+            kind="warning"
+            lowContrast
+            hideCloseButton
+            title="Liste kendiliğinden onaylanmadı"
+            subtitle={summary.autoHold.join(" ")}
+          />
+        )}
         {summary.year?.source === "manual" && summary.year.detected != null && summary.year.detected !== summary.year.start && (
           <InlineNotification
             kind="warning"

@@ -236,7 +236,7 @@ function clubGroup(db: DB, clubId: number) {
 }
 
 /** Üye ekler; zaten üyeyse bir şey yapmaz. Eklenen sayısını döndürür. */
-export function addMembers(db: DB, clubId: number, studentIds: number[], userId: number): number {
+export function addMembers(db: DB, clubId: number, studentIds: number[], userId: number | null): number {
   return db.transaction(() => {
     const g = clubGroup(db, clubId);
     let added = 0;

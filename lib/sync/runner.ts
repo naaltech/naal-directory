@@ -8,7 +8,7 @@ import { logAction } from "../audit.ts";
 import type { DB } from "../db.ts";
 import { isGoogleConfigured } from "../google/api.ts";
 import { DryRunGoogle, liveGoogle } from "./google.ts";
-import { runQueue, type RunReport } from "./worker.ts";
+import { activeLock, runQueue, type RunReport } from "./worker.ts";
 
 export type RunMode = "DRY" | "LIVE";
 
@@ -64,7 +64,7 @@ export function getRun(db: DB, id: number): SyncRun | undefined {
 
 /** Komut satırından çalışan bir senkronizasyon var mı (işçinin kilidi) */
 export function cliLockHeld(db: DB): boolean {
-  return Boolean(db.prepare("SELECT 1 FROM settings WHERE key = 'sync.lock'").get());
+  return activeLock(db) !== null;
 }
 
 export function startRun(db: DB, input: { mode: RunMode; limit?: number; userId: number }): number {

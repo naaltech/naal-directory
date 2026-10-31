@@ -26,6 +26,15 @@ const db = openDb();
 await db.backup(file);
 db.close();
 chmodSync(file, 0o600);
+
+// Bozuk yedek sessizce saklanmasın, sunucu dışına da gönderilmesin
+const copy = openDb(file);
+const integrity = copy.pragma("integrity_check", { simple: true });
+copy.close();
+if (integrity !== "ok") {
+  unlinkSync(file);
+  throw new Error(`Yedek bozuk, silindi: ${integrity}`);
+}
 console.log(`Yedek: ${file}`);
 
 const cutoff = Date.now() - keepDays * 86_400_000;

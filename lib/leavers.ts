@@ -112,6 +112,8 @@ export interface LeaverCandidates {
   rows: LeaverCandidate[];
   /** Beklenen sınıf seviyesinin bu yıl hiç şubesi yüklenmediği için aday sayılmayanlar (liste eksik olabilir) */
   held: { grade: number; count: number }[];
+  /** Bu yılın listesinde şubesi olan sınıf seviyeleri */
+  grades: number[];
 }
 
 /**
@@ -121,9 +123,9 @@ export interface LeaverCandidates {
  */
 export function leaverCandidates(db: DB): LeaverCandidates {
   const year = currentYearRef(db);
-  if (!year) return { yearName: null, listLoaded: false, rows: [], held: [] };
+  if (!year) return { yearName: null, listLoaded: false, rows: [], held: [], grades: [] };
   const listLoaded = Boolean(db.prepare("SELECT 1 FROM enrollments WHERE academic_year_id = ? LIMIT 1").get(year.id));
-  if (!listLoaded) return { yearName: year.name, listLoaded, rows: [], held: [] };
+  if (!listLoaded) return { yearName: year.name, listLoaded, rows: [], held: [], grades: [] };
 
   const gradesThisYear = new Set(
     db
@@ -202,12 +204,13 @@ export function leaverCandidates(db: DB): LeaverCandidates {
     listLoaded,
     rows,
     held: [...held].map(([grade, count]) => ({ grade, count })).sort((a, b) => a.grade - b.grade),
+    grades: [...gradesThisYear],
   };
 }
 
 // ───── Ayrılış ─────
 
-export function markLeavers(db: DB, items: { studentId: number; reason: ExitReason }[], userId: number, now = new Date()): number {
+export function markLeavers(db: DB, items: { studentId: number; reason: ExitReason }[], userId: number | null, now = new Date()): number {
   return db.transaction(() => {
     const currentYearId = currentYearRef(db)?.id;
     let n = 0;

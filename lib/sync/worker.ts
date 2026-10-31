@@ -40,15 +40,18 @@ export interface RunReport {
 
 export class LockedError extends Error {}
 
+/** Süresi dolmamış kilit; çöken sürecin bıraktığı eski kilit tutulmuş sayılmaz */
+export function activeLock(db: DB): { pid: number; at: number } | null {
+  const held = db.prepare("SELECT value FROM settings WHERE key = ?").pluck().get(LOCK_KEY) as string | undefined;
+  if (!held) return null;
+  const lock = JSON.parse(held) as { at: number; pid: number };
+  return Date.now() - lock.at < LOCK_TTL_MIN * 60_000 ? lock : null;
+}
+
 function acquireLock(db: DB) {
   db.transaction(() => {
-    const held = db.prepare("SELECT value FROM settings WHERE key = ?").pluck().get(LOCK_KEY) as string | undefined;
-    if (held) {
-      const { at, pid } = JSON.parse(held) as { at: number; pid: number };
-      if (Date.now() - at < LOCK_TTL_MIN * 60_000) {
-        throw new LockedError(`Başka bir senkronizasyon çalışıyor (pid ${pid}). Bitmesini bekleyin.`);
-      }
-    }
+    const lock = activeLock(db);
+    if (lock) throw new LockedError(`Başka bir senkronizasyon çalışıyor (pid ${lock.pid}). Bitmesini bekleyin.`);
     refreshLock(db);
   })();
 }
