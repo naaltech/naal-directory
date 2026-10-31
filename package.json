@@ -23,7 +23,7 @@
   "dependencies": {
     "@carbon/react": "^1.119.0",
     "better-sqlite3": "^13.0.3",
-    "next": "^15.5.28",
+    "next": "^16.4.3",
     "nodemailer": "^7.0.13",
     "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
