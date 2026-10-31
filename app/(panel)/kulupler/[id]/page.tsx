@@ -59,6 +59,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-normal">{club.name}</h1>
             {club.is_active ? <StatusTag status={club.group_status} /> : <Tag type="gray">Kapatıldı</Tag>}
+            {club.is_event ? <Tag type="purple">Etkinlik</Tag> : null}
           </div>
           <p className="mt-2 text-sm text-secondary">
             <span className="font-mono">{club.email}</span>
@@ -70,6 +71,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             clubId={club.id}
             name={club.name}
             description={club.description}
+            isEvent={Boolean(club.is_event)}
             email={club.email}
             officers={officers.length}
             members={members.length}

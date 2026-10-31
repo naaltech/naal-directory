@@ -40,6 +40,7 @@ export interface ClubRow {
   name: string;
   description: string | null;
   is_active: number;
+  is_event: number;
   email: string | null;
   group_status: string | null;
   members: number;
@@ -51,7 +52,7 @@ export interface ClubRow {
 export function listClubs(db: DB): ClubRow[] {
   return db
     .prepare(
-      `SELECT k.id, k.code, k.name, k.description, k.is_active, g.email, g.status AS group_status,
+      `SELECT k.id, k.code, k.name, k.description, k.is_active, k.is_event, g.email, g.status AS group_status,
               (SELECT count(*) FROM club_members m WHERE m.club_id = k.id) AS members,
               (SELECT count(*) FROM club_officers o WHERE o.club_id = k.id AND o.ended_at IS NULL) AS officers,
               (SELECT group_concat(t.first_name || ' ' || t.last_name, ', ') FROM club_advisors a
@@ -65,7 +66,7 @@ export function listClubs(db: DB): ClubRow[] {
 export function getClub(db: DB, id: number) {
   const club = db
     .prepare(
-      `SELECT k.id, k.code, k.name, k.description, k.is_active, k.group_id, g.email, g.status AS group_status
+      `SELECT k.id, k.code, k.name, k.description, k.is_active, k.is_event, k.group_id, g.email, g.status AS group_status
        FROM clubs k LEFT JOIN groups g ON g.id = k.group_id WHERE k.id = ?`,
     )
     .get(id) as
@@ -75,6 +76,7 @@ export function getClub(db: DB, id: number) {
         name: string;
         description: string | null;
         is_active: number;
+        is_event: number;
         group_id: number | null;
         email: string | null;
         group_status: string | null;
@@ -161,7 +163,7 @@ export function getClub(db: DB, id: number) {
 
 export function createClub(
   db: DB,
-  input: { code: string; name: string; description?: string },
+  input: { code: string; name: string; description?: string; isEvent?: boolean },
   userId: number,
   googleTaken: Set<string> | null,
 ): number {
@@ -191,8 +193,8 @@ export function createClub(
     const yearId = db.prepare("SELECT id FROM academic_years WHERE is_current = 1").pluck().get() ?? null;
     const clubId = Number(
       db
-        .prepare("INSERT INTO clubs (code, name, description, academic_year_id, group_id) VALUES (?, ?, ?, ?, ?)")
-        .run(code, name, description, yearId, groupId).lastInsertRowid,
+        .prepare("INSERT INTO clubs (code, name, description, academic_year_id, group_id, is_event) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(code, name, description, yearId, groupId, input.isEvent ? 1 : 0).lastInsertRowid,
     );
     enqueue(db, "CREATE_GROUP", "group", groupId, { email, name, description });
     logAction(db, userId, "club.create", "club", clubId, { code, name });
@@ -437,8 +439,8 @@ export function searchActiveStudents(db: DB, q: string) {
 
 // ───── Kulüp düzenleme ve kapatma ─────
 
-/** Ad ve açıklama değişir; grup adresi (kod) değişmez */
-export function updateClub(db: DB, clubId: number, input: { name: string; description?: string }, userId: number) {
+/** Ad, açıklama ve etkinlik işareti değişir; grup adresi (kod) değişmez */
+export function updateClub(db: DB, clubId: number, input: { name: string; description?: string; isEvent: boolean }, userId: number) {
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new ClubError("Kulüp adı gerekli.");
   db.transaction(() => {
@@ -448,10 +450,10 @@ export function updateClub(db: DB, clubId: number, input: { name: string; descri
     if (!k) throw new ClubError("Kulüp bulunamadı.");
     if (!k.is_active) throw new ClubError("Kapatılmış kulüp düzenlenemez.");
     const description = input.description?.trim() || `${name} kulübü`;
-    db.prepare("UPDATE clubs SET name = ?, description = ? WHERE id = ?").run(name, description, clubId);
+    db.prepare("UPDATE clubs SET name = ?, description = ?, is_event = ? WHERE id = ?").run(name, description, input.isEvent ? 1 : 0, clubId);
     db.prepare("UPDATE groups SET name = ?, description = ? WHERE id = ?").run(name, description, k.group_id);
     enqueue(db, "UPDATE_GROUP", "group", k.group_id, { email: k.email, name, description });
-    logAction(db, userId, "club.update", "club", clubId, { name });
+    logAction(db, userId, "club.update", "club", clubId, { name, isEvent: input.isEvent });
   })();
 }
 

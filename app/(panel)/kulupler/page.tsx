@@ -62,6 +62,11 @@ export default async function ClubsPage() {
                     <Link href={`/kulupler/${k.id}`} className="text-interactive hover:underline">
                       {k.name}
                     </Link>
+                    {k.is_event ? (
+                      <Tag type="purple" size="sm" className="ml-2">
+                        Etkinlik
+                      </Tag>
+                    ) : null}
                   </TableCell>
                   <TableCell className="font-mono text-sm">{k.email}</TableCell>
                   <TableCell>{k.advisors ?? (k.is_active ? <span className="text-support-warning">Atanmamış</span> : "—")}</TableCell>

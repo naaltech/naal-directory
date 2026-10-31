@@ -37,7 +37,7 @@ async function run(fn: () => Promise<ActionResult | void> | ActionResult | void,
   }
 }
 
-export async function createClubAction(input: { code: string; name: string; description?: string }): Promise<ActionResult> {
+export async function createClubAction(input: { code: string; name: string; description?: string; isEvent?: boolean }): Promise<ActionResult> {
   const user = await requireUser("ADMIN");
   const { taken } = await googleTakenOrNull();
   return run(() => ({ id: createClub(getDb(), input, user.id, taken) }), ["/kulupler"]);
@@ -88,7 +88,7 @@ export async function endOfficerAction(clubId: number, officerId: number): Promi
   return run(() => endOfficer(getDb(), officerId, user.id), [`/kulupler/${clubId}`, "/kulupler"]);
 }
 
-export async function updateClubAction(clubId: number, input: { name: string; description?: string }): Promise<ActionResult> {
+export async function updateClubAction(clubId: number, input: { name: string; description?: string; isEvent: boolean }): Promise<ActionResult> {
   const user = await requireUser("ADMIN");
   return run(() => updateClub(getDb(), clubId, input, user.id), [`/kulupler/${clubId}`, "/kulupler"]);
 }

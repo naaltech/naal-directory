@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, InlineNotification, Modal, TextArea, TextInput } from "@carbon/react";
+import { Button, Checkbox, InlineNotification, Modal, TextArea, TextInput } from "@carbon/react";
 import { Add } from "@carbon/icons-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -25,6 +25,7 @@ export function NewClub({ domain }: { domain: string }) {
   const [code, setCode] = useState("");
   const [codeTouched, setCodeTouched] = useState(false);
   const [description, setDescription] = useState("");
+  const [isEvent, setIsEvent] = useState(false);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
 
@@ -33,6 +34,7 @@ export function NewClub({ domain }: { domain: string }) {
     setCode("");
     setCodeTouched(false);
     setDescription("");
+    setIsEvent(false);
     setError(undefined);
   };
 
@@ -53,7 +55,7 @@ export function NewClub({ domain }: { domain: string }) {
         }}
         onRequestSubmit={() =>
           start(async () => {
-            const res = await createClubAction({ code, name, description });
+            const res = await createClubAction({ code, name, description, isEvent });
             if (res.error) return setError(res.error);
             setOpen(false);
             reset();
@@ -95,6 +97,12 @@ export function NewClub({ domain }: { domain: string }) {
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+          />
+          <Checkbox
+            id="club-event"
+            labelText="Etkinlik (sitede kulüp olarak görünmez)"
+            checked={isEvent}
+            onChange={(_, { checked }) => setIsEvent(checked)}
           />
           {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Eklenemedi" subtitle={error} />}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, ComboBox, IconButton, InlineNotification, Modal, Select, SelectItem, TextArea, TextInput } from "@carbon/react";
+import { Button, Checkbox, ComboBox, IconButton, InlineNotification, Modal, Select, SelectItem, TextArea, TextInput } from "@carbon/react";
 import { Add, Close, Edit, Email, TrashCan, UserFollow } from "@carbon/icons-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { OFFICER_TITLES } from "@/lib/labels.ts";
@@ -286,6 +286,7 @@ export function ClubSettings({
   clubId,
   name,
   description,
+  isEvent,
   email,
   officers,
   members,
@@ -293,13 +294,14 @@ export function ClubSettings({
   clubId: number;
   name: string;
   description: string | null;
+  isEvent: boolean;
   email: string;
   officers: number;
   members: number;
 }) {
   const [mode, setMode] = useState<"edit" | "close" | null>(null);
   const [queued, setQueued] = useState<string>();
-  const [draft, setDraft] = useState({ name, description: description ?? "" });
+  const [draft, setDraft] = useState({ name, description: description ?? "", isEvent });
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const close = () => {
@@ -312,7 +314,7 @@ export function ClubSettings({
         kind="tertiary"
         renderIcon={Edit}
         onClick={() => {
-          setDraft({ name, description: description ?? "" });
+          setDraft({ name, description: description ?? "", isEvent });
           setMode("edit");
         }}
       >
@@ -367,6 +369,12 @@ export function ClubSettings({
             rows={2}
             value={draft.description}
             onChange={(e: { target: { value: string } }) => setDraft((d) => ({ ...d, description: e.target.value }))}
+          />
+          <Checkbox
+            id="club-edit-event"
+            labelText="Etkinlik (sitede kulüp olarak görünmez)"
+            checked={draft.isEvent}
+            onChange={(_, { checked }) => setDraft((d) => ({ ...d, isEvent: checked }))}
           />
           <p className="text-xs text-helper">Grup adresi ({email}) değişmez. Google&apos;daki grup adı kuyruktan güncellenir.</p>
           {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Kaydedilemedi" subtitle={error} />}

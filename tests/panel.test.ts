@@ -203,6 +203,26 @@ test("köprü: Supabase'de olmayan açık kulüp eklenir, kapalı kulüp eklenme
   assert.deepEqual(state.clubs, ["TECH", "yeni"]);
 });
 
+test("köprü: etkinlik eklenmez, sonradan işaretlenen kulüp gizlenir, işaret kalkınca geri gelir", async () => {
+  const db = testDb();
+  addSuper(db);
+  addClub(db, "hack");
+  addClub(db, "yeni");
+  const mark = db.prepare("UPDATE clubs SET is_event = ? WHERE code = ?");
+  mark.run(1, "hack");
+  const { api, state } = fakeApi({ clubs: [] });
+  await syncPanel(db, api);
+  assert.deepEqual(state.clubs, ["yeni"]);
+
+  mark.run(1, "yeni");
+  await syncPanel(db, api);
+  assert.deepEqual(state.closed, ["yeni"]);
+
+  mark.run(0, "yeni");
+  await syncPanel(db, api);
+  assert.deepEqual(state.closed, []);
+});
+
 test("köprü: Supabase hatası işçiyi durdurmaz, sağlıkta görünür", async () => {
   const db = testDb();
   const { api } = fakeApi({ fail: true });

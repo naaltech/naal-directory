@@ -7,6 +7,7 @@
 // Süper yöneticisi olmayan liste, yanlış ya da boş veritabanı demektir: o durumda hiçbir yetki silinmez.
 //
 // Kulüplerin açık/kapalı durumu da aynı yolla gider: dizinde kapanan kulüp sitede gizlenir, yeniden açılınca geri gelir.
+// Etkinlik işaretli kayıtlar da sitede gizli kalır.
 //
 // Panel bu tarafa directory_commands tablosundan istek yazar. Hepsi tekrar çalıştırılabilir; istek yazan kişinin
 // yetkisi burada bir kez daha kontrol edilir.
@@ -77,12 +78,12 @@ async function runCommands(db: DB, api: PanelApi) {
 
 async function pushClubs(db: DB, api: PanelApi) {
   const known = new Map((await api.listClubs()).map((c) => [c.code.toLowerCase(), c]));
-  const clubs = db.prepare("SELECT code, name, is_active FROM clubs").all() as { code: string; name: string; is_active: number }[];
-  const missing = clubs.filter((c) => c.is_active && !known.has(c.code.toLowerCase())).map((c) => ({ code: c.code, title: c.name }));
+  const clubs = db.prepare("SELECT code, name, is_active AND NOT is_event AS visible FROM clubs").all() as { code: string; name: string; visible: number }[];
+  const missing = clubs.filter((c) => c.visible && !known.has(c.code.toLowerCase())).map((c) => ({ code: c.code, title: c.name }));
   if (missing.length) await api.addClubs(missing);
   for (const club of clubs) {
     const row = known.get(club.code.toLowerCase());
-    if (row && row.is_active !== Boolean(club.is_active)) await api.setClubActive(row.code, Boolean(club.is_active));
+    if (row && row.is_active !== Boolean(club.visible)) await api.setClubActive(row.code, Boolean(club.visible));
   }
 }
 
