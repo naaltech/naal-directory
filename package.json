@@ -24,7 +24,7 @@
     "@carbon/react": "^1.119.0",
     "better-sqlite3": "^13.0.3",
     "next": "^15.5.28",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^10.2.1",
     "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
     "react": "^19.1.10",
