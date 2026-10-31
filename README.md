@@ -67,13 +67,11 @@ Sunucuya kurulum (VPS, pm2, Caddy, yedek, cron) için: [deploy/README.md](deploy
 | `DATABASE_PATH` | SQLite dosyası, varsayılan `./data/app.db` |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` | Servis hesabı JSON anahtarı (`./secrets/...`, git'e eklenmez) |
 | `GOOGLE_ADMIN_IMPERSONATE` | Servis hesabının adına çalışacağı süper yönetici hesabı |
-| `GOOGLE_CUSTOMER_ID` | Genelde `my_customer` |
-| `NATIONAL_ID_HASH_KEY` | TC kimlik no özetleri için gizli anahtar |
 | `PASSWORD_ENC_KEY` | İlk şifreleri şifrelemek için 32 baytlık anahtar (base64) |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Giriş formunda Cloudflare Turnstile; geliştirmede boş bırakılabilir, üretimde zorunlu |
 
-`PASSWORD_ENC_KEY` ve `NATIONAL_ID_HASH_KEY` bir kez belirlendikten sonra değiştirilmemelidir: değişirse kayıtlı ilk
-şifreler çözülemez ve öğrenci eşleştirmeleri bozulur. Anahtar üretmek için:
+`PASSWORD_ENC_KEY` bir kez belirlendikten sonra değiştirilmemelidir: değişirse kayıtlı ilk şifreler çözülemez.
+Anahtar üretmek için:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -112,6 +110,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `npm run backup` | Veritabanı yedeği (`./backups`, 30 gün saklanır) |
 | `npm run roster:parse -- "<dosya.pdf>"` | Listeyi sadece çözümler ve sorunları gösterir (veritabanına dokunmaz) |
 | `npm run google:check` | Google bağlantı testi (sadece okur) |
+| `npm test` / `npm run typecheck` | Testler (`tests/`, Google'a ve gerçek veriye dokunmaz) / tip kontrolü |
 
 Panelde kayıt ekranı yoktur. Roller: Süper yönetici, Yönetici, Görüntüleyici (sadece okur).
 
@@ -139,6 +138,16 @@ Kuyruk panelin Senkronizasyon sayfasından da çalıştırılır (deneme, ilk N 
 planda devam eder, sayfadan ayrılmak onu durdurmaz; ilerleme ve sonuç sayfada görünür, "Durdur" çalışan iş bitince
 durdurur. Komut satırıyla aynı kilidi kullanır, ikisi aynı anda çalışmaz. Görüntüleyici rolü çalıştıramaz.
 Sayfa ayrıca başarısız işlerin hatalarını gösterir ve yeniden denemeye alır.
+
+Sunucuda `naal-worker` süreci (`npm run worker`) sistem sağlığını izler ve uyarı gönderir. `.env`'de `SYNC_AUTO=1` ise
+kuyruğu da kendisi çalıştırır; silme işleri ve sınırları aşan iş yığınları yine yönetici onayı bekler
+([deploy/README.md](deploy/README.md), bölüm 8). Senkronizasyon sayfasındaki "Sistem durumu" bu kontrolleri ve gece
+yapılan Google karşılaştırmasının (`npm run reconcile`) farklarını gösterir.
+
+Aynı süreç yıllık döngüyü (temiz listenin onayı, ayrılanlar, süresi dolan ilk şifreler; `lib/year-cycle.ts`) ve yönetim
+paneli köprüsünü (`lib/panel/`) çalıştırır. Panelin yetkileri elle tutulmaz, dizindeki görev ve okul durumundan
+hesaplanıp Supabase'e yazılır: açık kulübün başkanı, başkan yardımcısı ve danışmanı kulübü, aktif `SUPER_ADMIN` hesapları
+her şeyi yönetir. Dergi editörü yalnızca bilim kulübündedir ve panelden eklenir.
 
 ## Proje yapısı
 

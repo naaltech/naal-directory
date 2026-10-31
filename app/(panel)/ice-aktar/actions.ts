@@ -9,19 +9,30 @@ import { googleTakenOrNull } from "@/lib/google/taken.ts";
 import {
   buildStudentPreview,
   deleteImportBatch,
+  holdImportBatch,
   resolveConflict,
   saveImportBatch,
   updateRowEmail,
   type ImportSummary,
   type PreviewRow,
 } from "@/lib/import/students.ts";
+import { sendMail } from "@/lib/mailer.ts";
 import { parseRoster } from "@/lib/roster/index.ts";
+import { autoConfirmProblems, autoMarkLeavers, listConfirmedMail } from "@/lib/year-cycle.ts";
 import { listYearProblem, schoolYearFor, yearName } from "@/lib/years.ts";
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
 export interface UploadState {
   error?: string;
+}
+
+/** Liste onayı: ayrılanlar işaretlenir ve yöneticiye özet gider. E-posta sorunu onayı geri almaz. */
+async function finishConfirm(batchId: number, userId: number) {
+  const db = getDb();
+  const result = confirmImportBatch(db, batchId, userId);
+  const leavers = autoMarkLeavers(db);
+  await sendMail(listConfirmedMail(result, leavers)).catch((e) => console.error(`Liste e-postası: ${(e as Error).message}`));
 }
 
 export async function uploadRosterAction(_prev: UploadState, form: FormData): Promise<UploadState> {
@@ -57,6 +68,9 @@ export async function uploadRosterAction(_prev: UploadState, form: FormData): Pr
       google: { checked: Boolean(google.taken), error: google.error, takenCount: google.taken?.size },
     };
     batchId = saveImportBatch(db, { fileName: file.name, parserId: roster.parserId, userId: user.id, roster, rows, summary });
+    const problems = autoConfirmProblems(db, batchId);
+    if (problems.length) holdImportBatch(db, batchId, problems);
+    else await finishConfirm(batchId, user.id);
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -88,7 +102,7 @@ export async function deleteBatchAction(batchId: number) {
 export async function confirmBatchAction(batchId: number): Promise<{ error?: string }> {
   const user = await requireUser("ADMIN");
   try {
-    confirmImportBatch(getDb(), batchId, user.id);
+    await finishConfirm(batchId, user.id);
   } catch (e) {
     if (e instanceof ConfirmError) return { error: e.message };
     throw e;

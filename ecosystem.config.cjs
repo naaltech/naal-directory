@@ -17,5 +17,20 @@ module.exports = {
       },
       time: true,
     },
+    {
+      // Kuyruk ve sağlık kontrolü (scripts/worker.ts). Çalışan iş bitsin diye durdurma süresi uzun.
+      name: "naal-worker",
+      cwd: __dirname,
+      script: "scripts/worker.ts",
+      node_args: "--no-warnings",
+      exec_mode: "fork",
+      instances: 1,
+      kill_timeout: 30000,
+      env: {
+        NODE_ENV: "production",
+        TZ: "Europe/Istanbul",
+      },
+      time: true,
+    },
   ],
 };

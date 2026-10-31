@@ -11,12 +11,17 @@ import {
   Tile,
 } from "@carbon/react";
 import { PageHeader } from "@/components/page-header.tsx";
+import { healthChecks } from "@/lib/alerts.ts";
 import { requireUser } from "@/lib/auth/server.ts";
 import { getDb } from "@/lib/db.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import { ACTION_LABELS } from "@/lib/labels.ts";
+import { RECONCILE_KEY, type ReconcileReport } from "@/lib/reconcile.ts";
+import { readSetting } from "@/lib/settings.ts";
+import { autoPause } from "@/lib/sync/auto.ts";
 import { cliLockHeld, latestRun } from "@/lib/sync/runner.ts";
 import { queueCounts } from "@/lib/sync/worker.ts";
+import { HealthPanel } from "./health-panel.tsx";
 import { RetryButton } from "./retry-button.tsx";
 import { SyncRunner } from "./sync-runner.tsx";
 
@@ -91,6 +96,13 @@ export default async function SyncPage() {
           </Tile>
         ))}
       </div>
+
+      <HealthPanel
+        checks={healthChecks(db)}
+        paused={Boolean(autoPause(db))}
+        canControl={user.role !== "VIEWER"}
+        reconcile={readSetting<ReconcileReport>(db, RECONCILE_KEY)}
+      />
 
       <SyncRunner
         key={run?.id ?? 0}

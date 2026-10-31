@@ -60,6 +60,7 @@ export interface ImportSummary {
   google: { checked: boolean; error?: string; takenCount?: number };
   result?: ConfirmResult; // onaydan sonra
   basisSeq?: number; // önizleme hazırlanırken import.confirmSeq değeri
+  autoHold?: string[]; // kendiliğinden onaylanmama nedenleri
 }
 
 export interface ImportBatch {
@@ -375,6 +376,11 @@ function recount(db: DB, batchId: number) {
        error_rows = (SELECT count(*) FROM import_rows WHERE batch_id = @id AND status <> 'VALID')
      WHERE id = @id`,
   ).run({ id: batchId });
+}
+
+/** Kendiliğinden onaylanmayan listenin nedenlerini önizlemede göstermek için saklar */
+export function holdImportBatch(db: DB, batchId: number, reasons: string[]) {
+  db.prepare("UPDATE import_batches SET summary = json_set(summary, '$.autoHold', json(?)) WHERE id = ?").run(JSON.stringify(reasons), batchId);
 }
 
 export function deleteImportBatch(db: DB, batchId: number, userId: number): boolean {
