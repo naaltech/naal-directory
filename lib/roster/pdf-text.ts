@@ -16,7 +16,8 @@ export function isPdf(bytes: Uint8Array): boolean {
 
 export async function extractPdfText(bytes: Uint8Array): Promise<TextItem[][]> {
   // pdfjs verilen tamponu worker'a devrettiği için kopyası verilir
-  const doc = await getDocument({ data: bytes.slice(), verbosity: 0, isEvalSupported: false }).promise;
+  const task = getDocument({ data: bytes.slice(), verbosity: 0 });
+  const doc = await task.promise;
   const pages: TextItem[][] = [];
   try {
     for (let p = 1; p <= doc.numPages; p++) {
@@ -30,7 +31,7 @@ export async function extractPdfText(bytes: Uint8Array): Promise<TextItem[][]> {
       pages.push(items);
     }
   } finally {
-    await doc.destroy();
+    await task.destroy();
   }
   return pages;
 }

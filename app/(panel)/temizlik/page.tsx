@@ -11,6 +11,10 @@ import { CleanupForm } from "./cleanup-form.tsx";
 export const metadata: Metadata = { title: "Temizlik" };
 export const dynamic = "force-dynamic";
 
+function scanHref() {
+  return `/temizlik?tara=${Date.now()}`;
+}
+
 export default async function CleanupPage({ searchParams }: { searchParams: Promise<{ tara?: string }> }) {
   const user = await requireUser();
   const { tara } = await searchParams;
@@ -32,7 +36,7 @@ export default async function CleanupPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="Temizlik"
         description="Sınıflar değiştikçe boş kalan şube OU'ları ve kullanılmayan sınıf grupları. Tarama Google'ı sadece okur; silme seçilenler için kuyruktan yapılır."
-        actions={<LinkButton href={`/temizlik?tara=${Date.now()}`}>{scan ? "Yeniden tara" : "Google'ı tara"}</LinkButton>}
+        actions={<LinkButton href={scanHref()}>{scan ? "Yeniden tara" : "Google'ı tara"}</LinkButton>}
       />
       {leavers > 0 && (
         <div className="mb-6">

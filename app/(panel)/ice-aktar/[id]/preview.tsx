@@ -170,8 +170,9 @@ export function Preview({
   const sectionInfo: SectionSummary | undefined = summary.sections.find((s) => s.key === section.key);
   const domain = rows.find((r) => r.email)?.email?.split("@")[1] ?? "";
 
+  const [now] = useState(() => Date.now());
   const reportDate = summary.reportDate ? new Date(summary.reportDate) : null;
-  const reportOld = reportDate && Date.now() - reportDate.getTime() > 180 * 864e5;
+  const reportOld = reportDate && now - reportDate.getTime() > 180 * 864e5;
   const status = BATCH_STATUS[batch.status] ?? { label: batch.status, type: "gray" as const };
   const sectionItems = [ALL, ...summary.sections.map((s) => ({ key: s.key, label: `${s.key} (${s.count})` }))];
 

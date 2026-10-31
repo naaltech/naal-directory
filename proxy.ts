@@ -1,10 +1,10 @@
 // Oturum çerezi olmayan istekleri giriş sayfasına yönlendirir.
 // Çerezin geçerliliği (süre, pasif hesap) sayfa düzeyinde requireUser() ile kontrol edilir;
-// middleware Edge'de çalıştığı için veritabanına erişmez.
+// proxy her istekte çalıştığı için veritabanına erişmez.
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./lib/auth/cookie.ts";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (req.cookies.has(SESSION_COOKIE)) return NextResponse.next();
   const url = req.nextUrl.clone();
   url.pathname = "/login";
