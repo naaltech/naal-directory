@@ -6,8 +6,8 @@ import { audit, findAdminByEmail, findAdminById, normalizeEmail, setAdminPasswor
 import { passwordProblem } from "./password.ts";
 import { createToken, deleteTokens, findToken, tokenRecentlyCreated } from "./tokens.ts";
 
-/** Yönetici adresi bu alan adlarından biri olabilir; öğrenci alan adı bilerek yok */
-export const ADMIN_EMAIL_DOMAINS = ["nevzatayazal.k12.tr", "naal.org.tr"];
+/** Yönetici adresi yalnızca okulun alan adlarından biri olabilir */
+export const ADMIN_EMAIL_DOMAINS = ["nevzatayazal.k12.tr", "ogr.nevzatayazal.k12.tr", "naal.org.tr"];
 
 const RESET_MINUTES = 60;
 const EMAIL_CHANGE_MINUTES = 24 * 60;

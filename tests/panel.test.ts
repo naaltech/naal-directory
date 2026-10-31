@@ -202,6 +202,18 @@ test("köprü: Supabase'de olmayan açık kulüp eklenir, kapalı kulüp eklenme
   assert.deepEqual(state.clubs, ["TECH", "yeni"]);
 });
 
+test("köprü: öğrenci yönetici olabilir, okuldan ayrılınca süper yetkisi biter", () => {
+  const db = testDb();
+  const email = "cem@ogr.nevzatayazal.k12.tr";
+  addStudent(db, { email });
+  addAdmin(db, email);
+  const isSuper = () => desiredRoles(db).some((r) => r.email === email && r.role === "super");
+
+  assert.equal(isSuper(), true);
+  db.prepare("UPDATE students SET exit_reason = 'GRADUATED' WHERE email = ?").run(email);
+  assert.equal(isSuper(), false);
+});
+
 test("köprü: Yönetici de süper yönetici olur, Görüntüleyici olmaz", async () => {
   const db = testDb();
   addSuper(db);

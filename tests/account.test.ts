@@ -197,17 +197,18 @@ test("süresi dolmuş bağlantı çalışmaz", async () => {
   await assert.rejects(resetPassword(db, token, "yeni-sifre-12345"), /geçersiz/);
 });
 
-test("e-posta yalnızca iki okul alan adına değişebilir", async () => {
+test("e-posta yalnızca okul alan adlarına değişebilir", async () => {
   const db = testDb();
   const { id } = await admin(db);
   await admin(db, "dolu@naal.org.tr");
 
-  for (const bad of ["ali@gmail.com", "ali@ogr.nevzatayazal.k12.tr", "ali", "@naal.org.tr", "a@b@naal.org.tr", "ali veli@naal.org.tr"]) {
+  for (const bad of ["ali@gmail.com", "ali@ogr.example.com", "ali", "@naal.org.tr", "a@b@naal.org.tr", "ali veli@naal.org.tr"]) {
     assert.throws(() => requestEmailChange(db, id, bad), /ile bitmeli/, bad);
   }
   assert.throws(() => requestEmailChange(db, id, EMAIL), /zaten hesabınızın/);
   assert.throws(() => requestEmailChange(db, id, "dolu@naal.org.tr"), /başka bir yöneticide/);
   assert.equal(requestEmailChange(db, id, " Yeni@NAAL.org.tr ").email, "yeni@naal.org.tr");
+  assert.equal(requestEmailChange(db, id, "ali@ogr.nevzatayazal.k12.tr").email, "ali@ogr.nevzatayazal.k12.tr");
 });
 
 test("e-posta değişikliği bağlantı açılınca olur, anahtar tek kullanımlık", async () => {

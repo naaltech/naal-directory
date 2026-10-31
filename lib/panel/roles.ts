@@ -2,7 +2,8 @@
 // okuldaki durumundan hesaplanır, bu yüzden göreve gelen hemen yetki alır, görevi biten ya da okuldan ayrılan
 // hemen kaybeder (bkz. sync.ts).
 //
-// - Süper yönetici: dizinin aktif SUPER_ADMIN ve ADMIN hesapları (okul alan adlarından biriyle).
+// - Süper yönetici: dizinin aktif SUPER_ADMIN ve ADMIN hesapları (okul alan adlarından biriyle). Yönetici öğrenciyse
+//   okuldan ayrılınca yetkisi biter.
 // - Kulüp yönetimi: açık kulübün başkanı, başkan yardımcısı ve danışman öğretmeni.
 // - Dergi editörü: yalnızca bilim kulübünde, club_editors'taki kişi.
 
@@ -30,6 +31,7 @@ export function desiredRoles(db: DB): PanelRole[] {
        FROM admin_users a
        WHERE a.role IN ('SUPER_ADMIN', 'ADMIN') AND a.is_active = 1
          AND EXISTS (SELECT 1 FROM domains d WHERE lower(a.email) LIKE '%@' || d.name)
+         AND NOT EXISTS (SELECT 1 FROM students s WHERE s.email = a.email AND (s.exit_reason IS NOT NULL OR s.status <> 'ACTIVE'))
        UNION ALL
        SELECT s.email, k.code, 'club', s.first_name || ' ' || s.last_name
        FROM club_officers o JOIN clubs k ON k.id = o.club_id JOIN students s ON s.id = o.student_id
