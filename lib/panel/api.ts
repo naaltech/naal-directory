@@ -2,7 +2,7 @@
 
 import type { PanelRole } from "./roles.ts";
 
-export type CommandKind = "grant_editor" | "revoke_editor" | "add_member";
+export type CommandKind = "grant_editor" | "revoke_editor";
 
 export interface PanelCommand {
   id: number;

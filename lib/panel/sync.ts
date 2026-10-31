@@ -13,7 +13,6 @@
 // yetkisi burada bir kez daha kontrol edilir.
 
 import { logAction } from "../audit.ts";
-import { addMembers, ClubError } from "../clubs.ts";
 import type { DB } from "../db.ts";
 import { readSetting, writeSetting } from "../settings.ts";
 import type { PanelApi, PanelCommand } from "./api.ts";
@@ -47,17 +46,13 @@ function runCommand(db: DB, c: PanelCommand, roles: PanelRole[]) {
     }
     return;
   }
+  if (c.kind !== "grant_editor") throw new CommandError("Bu istek artık işlenmiyor.");
   const person = findSchoolPerson(db, c.email);
   if (!person) throw new CommandError(`${c.email} okulda kayıtlı bir hesap değil.`);
-  if (c.kind === "grant_editor") {
-    if (c.club_code !== MAGAZINE_CLUB) throw new CommandError("Dergi editörü yalnızca bilim kulübüne eklenir.");
-    if (db.prepare("INSERT OR IGNORE INTO club_editors (club_id, email) VALUES (?, ?)").run(club.id, person.email).changes) {
-      logAction(db, null, "panel.editor_grant", "club", club.id, { email: person.email, by: c.requested_by });
-    }
-    return;
+  if (c.club_code !== MAGAZINE_CLUB) throw new CommandError("Dergi editörü yalnızca bilim kulübüne eklenir.");
+  if (db.prepare("INSERT OR IGNORE INTO club_editors (club_id, email) VALUES (?, ?)").run(club.id, person.email).changes) {
+    logAction(db, null, "panel.editor_grant", "club", club.id, { email: person.email, by: c.requested_by });
   }
-  if (person.type !== "student") throw new CommandError(`${c.email} öğrenci hesabı değil.`);
-  addMembers(db, club.id, [person.id], null);
 }
 
 async function runCommands(db: DB, api: PanelApi) {
@@ -67,7 +62,7 @@ async function runCommands(db: DB, api: PanelApi) {
     try {
       runCommand(db, c, desiredRoles(db));
     } catch (e) {
-      const known = e instanceof CommandError || e instanceof ClubError;
+      const known = e instanceof CommandError;
       if (!known) console.error(`Panel isteği ${c.id}: ${(e as Error).message}`);
       error = known ? e.message : "İstek işlenemedi.";
     }

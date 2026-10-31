@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/server.ts";
 import {
-  addMembers,
   assignAdvisor,
   assignOfficer,
   closeClub,
@@ -11,7 +10,6 @@ import {
   createClub,
   endAdvisor,
   endOfficer,
-  removeMember,
   searchActiveStudents,
   suggestAlias,
   reapplyClubSettings,
@@ -49,16 +47,6 @@ export async function searchStudentsAction(q: string) {
     id: s.id,
     label: `${s.first_name} ${s.last_name}${s.class_name ? ` · ${s.class_name}` : ""} · ${s.school_no}`,
   }));
-}
-
-export async function addMemberAction(clubId: number, studentId: number): Promise<ActionResult> {
-  const user = await requireUser("ADMIN");
-  return run(() => void addMembers(getDb(), clubId, [studentId], user.id), [`/kulupler/${clubId}`, "/kulupler"]);
-}
-
-export async function removeMemberAction(clubId: number, studentId: number): Promise<ActionResult> {
-  const user = await requireUser("ADMIN");
-  return run(() => removeMember(getDb(), clubId, studentId, user.id), [`/kulupler/${clubId}`, "/kulupler"]);
 }
 
 export async function suggestAliasAction(studentId: number): Promise<{ local?: string; error?: string }> {

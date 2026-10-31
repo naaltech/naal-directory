@@ -18,7 +18,7 @@ import { advisorCandidates, clubDomain, getClub } from "@/lib/clubs.ts";
 import { getDb } from "@/lib/db.ts";
 import { groupDomains, listGroupAliases } from "@/lib/groups.ts";
 import { ENTITY_STATUS, formatDate, OFFICER_TITLES } from "@/lib/labels.ts";
-import { AddMember, AssignAdvisor, AssignOfficer, ClubSettings, EndAdvisor, EndOfficer, RemoveMember } from "./club-controls.tsx";
+import { AssignAdvisor, AssignOfficer, ClubSettings, EndAdvisor, EndOfficer } from "./club-controls.tsx";
 
 export const metadata: Metadata = { title: "Kulüp" };
 
@@ -38,7 +38,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
   const db = getDb();
   const data = getClub(db, id);
   if (!data) notFound();
-  const { club, officers, pastOfficers, members, advisors } = data;
+  const { club, officers, pastOfficers, advisors } = data;
   const canEdit = user.role !== "VIEWER" && club.is_active === 1;
   const domain = clubDomain(db).name;
   const activeAdvisors = advisors.filter((a) => !a.ended_at);
@@ -74,7 +74,6 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             isEvent={Boolean(club.is_event)}
             email={club.email}
             officers={officers.length}
-            members={members.length}
           />
         )}
       </div>
@@ -82,7 +81,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
       <div className="space-y-8">
         <TableContainer
           title="Danışman öğretmenler"
-          description={`Danışman, ${club.email ?? "kulüp grubu"} grubuna yönetici olarak eklenir: üyeleri yönetebilir, mesajları denetleyebilir.`}
+          description={`Danışman, ${club.email ?? "kulüp grubu"} grubuna yönetici olarak eklenir ve mesajları denetleyebilir.`}
         >
           {canEdit && <AssignAdvisor clubId={club.id} teachers={teacherOptions} />}
           <Table size="md" aria-label="Danışman öğretmenler">
@@ -130,7 +129,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
 
         <TableContainer
           title="Yönetim kadrosu"
-          description={`Takma adlar (isim@${domain}) öğrencinin kendi hesabına eklenir.`}
+          description={`Görevliler ${club.email ?? "kulüp grubuna"} grubuna eklenir, görevi bitince çıkar. Takma adlar (isim@${domain}) öğrencinin kendi hesabına eklenir.`}
         >
           {canEdit && (
             <div className="flex justify-end px-4 pb-4">
@@ -195,49 +194,6 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             canEdit={canEdit}
           />
         )}
-
-        <TableContainer title={`${members.length} üye`} description={`Üyeler ${club.email} grubuna eklenir.`}>
-          {canEdit && <AddMember clubId={club.id} />}
-          <Table size="md" aria-label="Üyeler">
-            <TableHead>
-              <TableRow>
-                <TableHeader>Şube</TableHeader>
-                <TableHeader>Ad Soyad</TableHeader>
-                <TableHeader>E-posta</TableHeader>
-                <TableHeader>Grup üyeliği</TableHeader>
-                {canEdit && <TableHeader aria-label="İşlem" />}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {members.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={canEdit ? 5 : 4} className="text-secondary">
-                    Üye yok.
-                  </TableCell>
-                </TableRow>
-              )}
-              {members.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>{m.class_name ?? "—"}</TableCell>
-                  <TableCell>
-                    <Link href={`/ogrenciler/${m.id}`} className="text-interactive hover:underline">
-                      {m.first_name} {m.last_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{m.email}</TableCell>
-                  <TableCell>
-                    <StatusTag status={m.member_status} />
-                  </TableCell>
-                  {canEdit && (
-                    <TableCell className="text-right">
-                      <RemoveMember clubId={club.id} studentId={m.id} name={`${m.first_name} ${m.last_name}`} />
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
 
         {advisors.some((a) => a.ended_at) && (
           <TableContainer title="Önceki danışmanlar">

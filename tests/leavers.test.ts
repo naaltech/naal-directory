@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addMembers, assignOfficer } from "../lib/clubs.ts";
+import { assignOfficer } from "../lib/clubs.ts";
 import { leaverCandidates, LeaverError, markLeavers, retentionDates, undoLeave } from "../lib/leavers.ts";
 import { addAdmin, addClass, addClub, addStudent, enroll, testDb, yearId } from "./helpers.ts";
 
@@ -70,7 +70,6 @@ test("ayrılan öğrenci gruplardan çıkar, görevi biter, tarihleri yazılır"
   const userId = addAdmin(db);
   const { clubId } = addClub(db, "robotik");
   const id = addStudent(db, { email: "a@ogr.nevzatayazal.k12.tr", orgUnitPath: "/Ogrenciler/12/12-A" });
-  addMembers(db, clubId, [id], userId);
   assignOfficer(db, { clubId, studentId: id, title: "PRESIDENT", aliasLocal: "ayse" }, userId, null);
   db.prepare("DELETE FROM sync_jobs").run();
 

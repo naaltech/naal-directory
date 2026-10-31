@@ -1,4 +1,5 @@
-// Kulüpler: kulupkodu@naal.org.tr grubu, üyeler ve yönetim kadrosu.
+// Kulüpler: kulupkodu@naal.org.tr grubu ve yönetim kadrosu. Grupta yalnızca görevliler ve danışmanlar bulunur;
+// öğrenci üyeler gruba eklenmez, grup adresine yazabilen herkes güvenlik açığı olurdu.
 // Kadroya ayrı hesap açılmaz: öğrencinin kendi hesabına isim@naal.org.tr takma adı eklenir,
 // hesap /Kulupler OU'suna taşınır. Görev bitince takma ad kalkar, hesap şube OU'suna döner.
 
@@ -43,7 +44,6 @@ export interface ClubRow {
   is_event: number;
   email: string | null;
   group_status: string | null;
-  members: number;
   officers: number;
   /** Aktif danışmanların adları, virgülle */
   advisors: string | null;
@@ -53,7 +53,6 @@ export function listClubs(db: DB): ClubRow[] {
   return db
     .prepare(
       `SELECT k.id, k.code, k.name, k.description, k.is_active, k.is_event, g.email, g.status AS group_status,
-              (SELECT count(*) FROM club_members m WHERE m.club_id = k.id) AS members,
               (SELECT count(*) FROM club_officers o WHERE o.club_id = k.id AND o.ended_at IS NULL) AS officers,
               (SELECT group_concat(t.first_name || ' ' || t.last_name, ', ') FROM club_advisors a
                  JOIN teachers t ON t.id = a.teacher_id WHERE a.club_id = k.id AND a.ended_at IS NULL) AS advisors
@@ -120,25 +119,6 @@ export function getClub(db: DB, id: number) {
     first_name: string;
     last_name: string;
   }[];
-  const members = db
-    .prepare(
-      `SELECT s.id, s.first_name, s.last_name, s.email, s.status, c.name AS class_name, m.joined_at,
-              gm.status AS member_status
-       FROM club_members m JOIN students s ON s.id = m.student_id
-       LEFT JOIN class_sections c ON c.id = s.class_id
-       LEFT JOIN group_members gm ON gm.group_id = ? AND gm.student_id = s.id
-       WHERE m.club_id = ? ORDER BY c.grade, c.section, s.last_name`,
-    )
-    .all(club.group_id, id) as {
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-    status: string;
-    class_name: string | null;
-    joined_at: string;
-    member_status: string | null;
-  }[];
   const advisors = db
     .prepare(
       `SELECT a.id, a.started_at, a.ended_at, t.id AS teacher_id, t.first_name, t.last_name, t.email, t.branch,
@@ -158,7 +138,7 @@ export function getClub(db: DB, id: number) {
     branch: string | null;
     member_status: string | null;
   }[];
-  return { club, officers, pastOfficers, members, advisors };
+  return { club, officers, pastOfficers, advisors };
 }
 
 export function createClub(
@@ -202,8 +182,6 @@ export function createClub(
   })();
 }
 
-// ───── Üyeler ─────
-
 function activeStudent(db: DB, studentId: number) {
   const s = db
     .prepare(
@@ -237,38 +215,22 @@ function clubGroup(db: DB, clubId: number) {
   return g;
 }
 
-/** Üye ekler; zaten üyeyse bir şey yapmaz. Eklenen sayısını döndürür. */
-export function addMembers(db: DB, clubId: number, studentIds: number[], userId: number | null): number {
-  return db.transaction(() => {
-    const g = clubGroup(db, clubId);
-    let added = 0;
-    for (const sid of studentIds) {
-      const s = activeStudent(db, sid);
-      const r = db.prepare("INSERT OR IGNORE INTO club_members (club_id, student_id) VALUES (?, ?)").run(clubId, sid);
-      if (!r.changes) continue;
-      if (db.prepare("INSERT OR IGNORE INTO group_members (group_id, student_id, member_email) VALUES (?, ?, ?)").run(g.id, sid, s.email).changes) {
-        enqueue(db, "ADD_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: s.email, role: "MEMBER" });
-      }
-      added++;
-    }
-    if (added) logAction(db, userId, "club.members_add", "club", clubId, { studentIds });
-    return added;
-  })();
+/** Görevli kulüp grubuna girer; zaten gruptaysa bir şey yapmaz. */
+function joinClubGroup(db: DB, clubId: number, studentId: number, email: string) {
+  const g = clubGroup(db, clubId);
+  db.prepare("INSERT OR IGNORE INTO club_members (club_id, student_id) VALUES (?, ?)").run(clubId, studentId);
+  if (db.prepare("INSERT OR IGNORE INTO group_members (group_id, student_id, member_email) VALUES (?, ?, ?)").run(g.id, studentId, email).changes) {
+    enqueue(db, "ADD_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: email, role: "MEMBER" });
+  }
 }
 
-export function removeMember(db: DB, clubId: number, studentId: number, userId: number) {
-  db.transaction(() => {
-    if (db.prepare("SELECT 1 FROM club_officers WHERE club_id = ? AND student_id = ? AND ended_at IS NULL").get(clubId, studentId)) {
-      throw new ClubError("Öğrencinin bu kulüpte aktif görevi var; önce görevi sonlandırın.");
-    }
-    const g = clubGroup(db, clubId);
-    db.prepare("DELETE FROM club_members WHERE club_id = ? AND student_id = ?").run(clubId, studentId);
-    const email = db.prepare("SELECT email FROM students WHERE id = ?").pluck().get(studentId) as string;
-    if (db.prepare("DELETE FROM group_members WHERE group_id = ? AND student_id = ?").run(g.id, studentId).changes) {
-      enqueue(db, "REMOVE_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: email });
-    }
-    logAction(db, userId, "club.member_remove", "club", clubId, { studentId });
-  })();
+/** Görevi biten kişi kulüp grubunda kalmaz. */
+function leaveClubGroup(db: DB, clubId: number, studentId: number, email: string) {
+  const g = clubGroup(db, clubId);
+  db.prepare("DELETE FROM club_members WHERE club_id = ? AND student_id = ?").run(clubId, studentId);
+  if (db.prepare("DELETE FROM group_members WHERE group_id = ? AND student_id = ?").run(g.id, studentId).changes) {
+    enqueue(db, "REMOVE_MEMBER", "group", g.id, { groupEmail: g.email, memberEmail: email });
+  }
 }
 
 // ───── Yönetim kadrosu ─────
@@ -308,8 +270,7 @@ export function assignOfficer(
     }
     checkFree(db, alias, googleTaken);
 
-    // Görevli kulübün üyesi de olur
-    addMembers(db, input.clubId, [s.id], userId);
+    joinClubGroup(db, input.clubId, s.id, s.email);
     const wasOfficer = db.prepare("SELECT 1 FROM club_officers WHERE student_id = ? AND ended_at IS NULL").get(s.id);
     const id = Number(
       db
@@ -340,6 +301,7 @@ export function endOfficer(db: DB, officerId: number, userId: number) {
       | undefined;
     if (!o) throw new ClubError("Aktif görev bulunamadı.");
     endOfficerRow(db, o);
+    leaveClubGroup(db, o.club_id, o.student_id, o.email);
     logAction(db, userId, "club.officer_end", "club", o.club_id, { studentId: o.student_id, alias: o.alias_email });
   })();
 }

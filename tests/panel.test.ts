@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { healthChecks } from "../lib/alerts.ts";
+import { assignOfficer, endOfficer } from "../lib/clubs.ts";
 import type { DB } from "../lib/db.ts";
 import { MailLimitError, personalMailerFromEnv, type PersonalMail } from "../lib/mailer.ts";
 import type { PanelApi, PanelCertificate, PanelCommand, PanelRecipient, RecipientResult } from "../lib/panel/api.ts";
@@ -255,47 +257,71 @@ test("köprü: Supabase hatası işçiyi durdurmaz, sağlıkta görünür", asyn
 
 const command = (over: Partial<PanelCommand>): PanelCommand => ({
   id: 1,
-  kind: "add_member",
+  kind: "grant_editor",
   club_code: "bilim",
   email: "ogrenci@ogr.nevzatayazal.k12.tr",
   requested_by: SUPER,
   ...over,
 });
 
-test("istek: kabul edilen öğrenci kulübe üye olur ve grup işi kuyruğa girer", async () => {
-  const db = testDb();
-  addSuper(db);
-  const { clubId } = addClub(db, "bilim");
-  const s = addStudent(db, { email: "ogrenci@ogr.nevzatayazal.k12.tr" });
-  const { api, state } = fakeApi({ commands: [command({})], clubs: ["bilim"] });
-  await syncPanel(db, api);
-  assert.deepEqual(state.finished, [{ id: 1, error: null }]);
-  assert.ok(db.prepare("SELECT 1 FROM club_members WHERE club_id = ? AND student_id = ?").get(clubId, s));
-  assert.equal(db.prepare("SELECT count(*) FROM sync_jobs WHERE action = 'ADD_MEMBER'").pluck().get(), 1);
-});
-
-test("istek: aynı üyelik isteği tekrar çalışınca ikinci iş eklenmez", async () => {
+test("istek: eski üyelik isteği reddedilir, kimse gruba eklenmez", async () => {
   const db = testDb();
   addSuper(db);
   addClub(db, "bilim");
   addStudent(db, { email: "ogrenci@ogr.nevzatayazal.k12.tr" });
-  const { api } = fakeApi({ commands: [command({ id: 1 }), command({ id: 2 })], clubs: ["bilim"] });
+  const old = command({ kind: "add_member" as PanelCommand["kind"] });
+  const { api, state } = fakeApi({ commands: [old], clubs: ["bilim"] });
   await syncPanel(db, api);
-  assert.equal(db.prepare("SELECT count(*) FROM sync_jobs WHERE action = 'ADD_MEMBER'").pluck().get(), 1);
+  assert.match(state.finished[0].error!, /işlenmiyor/);
+  assert.equal(db.prepare("SELECT count(*) FROM club_members").pluck().get(), 0);
+  assert.equal(db.prepare("SELECT count(*) FROM sync_jobs WHERE action = 'ADD_MEMBER'").pluck().get(), 0);
 });
 
-test("istek: okulda olmayan adres ve öğretmen üye yapılmaz, neden yazılır", async () => {
+test("kulüp grubu: görevli girer, görevi bitince çıkar", () => {
+  const db = testDb();
+  const admin = addAdmin(db);
+  const { clubId } = addClub(db, "bilim");
+  const email = "gorevli@ogr.nevzatayazal.k12.tr";
+  const studentId = addStudent(db, { email });
+  const officerId = assignOfficer(db, { clubId, studentId, title: "PRESIDENT", aliasLocal: "gorevli" }, admin, null);
+  const inGroup = () => db.prepare("SELECT count(*) FROM group_members WHERE member_email = ?").pluck().get(email);
+  assert.equal(inGroup(), 1);
+
+  endOfficer(db, officerId, admin);
+  assert.equal(inGroup(), 0);
+  assert.equal(db.prepare("SELECT count(*) FROM club_members").pluck().get(), 0);
+  assert.equal(db.prepare("SELECT count(*) FROM sync_jobs WHERE action = 'REMOVE_MEMBER'").pluck().get(), 1);
+});
+
+test("011: eski üyeler gruptan çıkar, görevli ve danışman kalır", () => {
+  const db = testDb();
+  const admin = addAdmin(db);
+  const { clubId, groupId } = addClub(db, "bilim");
+  const member = addStudent(db, { email: "uye@ogr.nevzatayazal.k12.tr" });
+  const officer = addStudent(db, { email: "gorevli@ogr.nevzatayazal.k12.tr" });
+  assignOfficer(db, { clubId, studentId: officer, title: "PRESIDENT", aliasLocal: "gorevli" }, admin, null);
+  db.prepare("INSERT INTO club_members (club_id, student_id) VALUES (?, ?)").run(clubId, member);
+  db.prepare("INSERT INTO group_members (group_id, student_id, member_email) VALUES (?, ?, 'uye@ogr.nevzatayazal.k12.tr')").run(groupId, member);
+  db.prepare("INSERT INTO group_members (group_id, role, member_email) VALUES (?, 'MANAGER', 'danisman@nevzatayazal.k12.tr')").run(groupId);
+  db.prepare("DELETE FROM sync_jobs").run();
+
+  db.exec(readFileSync(new URL("../db/migrations/011_club_groups_officers_only.sql", import.meta.url), "utf8"));
+
+  const left = db.prepare("SELECT member_email FROM group_members ORDER BY member_email").pluck().all();
+  assert.deepEqual(left, ["danisman@nevzatayazal.k12.tr", "gorevli@ogr.nevzatayazal.k12.tr"]);
+  assert.deepEqual(db.prepare("SELECT student_id FROM club_members").pluck().all(), [officer]);
+  const job = db.prepare("SELECT action, payload FROM sync_jobs").get() as { action: string; payload: string };
+  assert.equal(job.action, "REMOVE_MEMBER");
+  assert.equal(JSON.parse(job.payload).memberEmail, "uye@ogr.nevzatayazal.k12.tr");
+});
+
+test("istek: okulda olmayan adres editör yapılmaz, neden yazılır", async () => {
   const db = testDb();
   addSuper(db);
   addClub(db, "bilim");
-  addTeacher(db, "hoca@nevzatayazal.k12.tr");
-  const { api, state } = fakeApi({
-    commands: [command({ id: 1, email: "kisisel@gmail.com" }), command({ id: 2, email: "hoca@nevzatayazal.k12.tr" })],
-    clubs: ["bilim"],
-  });
+  const { api, state } = fakeApi({ commands: [command({ email: "kisisel@gmail.com" })], clubs: ["bilim"] });
   await syncPanel(db, api);
   assert.match(state.finished[0].error!, /okulda kayıtlı/);
-  assert.match(state.finished[1].error!, /öğrenci hesabı değil/);
 });
 
 test("istek: yetkisini kaybetmiş kişinin isteği reddedilir", async () => {

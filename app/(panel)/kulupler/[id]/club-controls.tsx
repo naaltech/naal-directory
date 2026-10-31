@@ -5,14 +5,12 @@ import { Add, Close, Edit, Email, TrashCan, UserFollow } from "@carbon/icons-rea
 import { useEffect, useRef, useState, useTransition } from "react";
 import { OFFICER_TITLES } from "@/lib/labels.ts";
 import {
-  addMemberAction,
   assignAdvisorAction,
   assignOfficerAction,
   closeClubAction,
   endAdvisorAction,
   endOfficerAction,
   reapplyClubSettingsAction,
-  removeMemberAction,
   searchStudentsAction,
   suggestAliasAction,
   updateClubAction,
@@ -40,34 +38,6 @@ function StudentPicker({ id, value, onChange }: { id: string; value: Option | nu
       }}
       shouldFilterItem={() => true}
     />
-  );
-}
-
-export function AddMember({ clubId }: { clubId: number }) {
-  const [student, setStudent] = useState<Option | null>(null);
-  const [error, setError] = useState<string>();
-  const [pending, start] = useTransition();
-  return (
-    <div className="flex flex-wrap items-end gap-2 px-4 pb-4">
-      <div className="w-full sm:w-auto sm:min-w-72 sm:flex-1">
-        <StudentPicker id="member-picker" value={student} onChange={setStudent} />
-      </div>
-      <Button
-        size="md"
-        renderIcon={Add}
-        disabled={!student || pending}
-        onClick={() =>
-          start(async () => {
-            const res = await addMemberAction(clubId, student!.id);
-            setError(res.error);
-            if (!res.error) setStudent(null);
-          })
-        }
-      >
-        Üye ekle
-      </Button>
-      {error && <p className="w-full text-sm text-support-error">{error}</p>}
-    </div>
   );
 }
 
@@ -208,7 +178,7 @@ export function EndAdvisor({ clubId, advisorId, name }: { clubId: number; adviso
   );
 }
 
-/** Satır sonundaki onaylı işlem düğmesi (üyelikten çıkar, görevi bitir) */
+/** Satır sonundaki onaylı işlem düğmesi (görevi bitir, danışmanlığı bitir) */
 export function RowAction({
   label,
   heading,
@@ -257,24 +227,12 @@ export function RowAction({
   );
 }
 
-export function RemoveMember({ clubId, studentId, name }: { clubId: number; studentId: number; name: string }) {
-  return (
-    <RowAction
-      label="Üyelikten çıkar"
-      heading="Üyelikten çıkarılsın mı?"
-      body={`${name} kulüpten ve kulüp grubundan çıkarılacak.`}
-      confirmText="Çıkar"
-      onConfirm={() => removeMemberAction(clubId, studentId)}
-    />
-  );
-}
-
 export function EndOfficer({ clubId, officerId, name, alias }: { clubId: number; officerId: number; name: string; alias: string }) {
   return (
     <RowAction
       label="Görevi sonlandır"
       heading="Görev sonlandırılsın mı?"
-      body={`${name} hesabından ${alias} takma adı kaldırılacak ve başka görevi yoksa hesap şube OU'suna dönecek. Kulüp üyeliği devam eder.`}
+      body={`${name} hesabından ${alias} takma adı kaldırılacak ve başka görevi yoksa hesap şube OU'suna dönecek. Kişi kulüp grubundan da çıkarılacak.`}
       confirmText="Sonlandır"
       onConfirm={() => endOfficerAction(clubId, officerId)}
     />
@@ -289,7 +247,6 @@ export function ClubSettings({
   isEvent,
   email,
   officers,
-  members,
 }: {
   clubId: number;
   name: string;
@@ -297,7 +254,6 @@ export function ClubSettings({
   isEvent: boolean;
   email: string;
   officers: number;
-  members: number;
 }) {
   const [mode, setMode] = useState<"edit" | "close" | null>(null);
   const [queued, setQueued] = useState<string>();
@@ -400,7 +356,6 @@ export function ClubSettings({
       >
         <ul className="list-disc space-y-1 pl-5 text-sm">
           {officers > 0 && <li>{officers} görev sonlanır: takma adlar kaldırılır, hesaplar şube OU&apos;suna döner.</li>}
-          {members > 0 && <li>{members} üyelik silinir.</li>}
           <li>
             <span className="font-mono">{email}</span> grubu Google&apos;dan silinir. Gruba gelen e-postalar ve grup
             ayarları geri gelmez.
