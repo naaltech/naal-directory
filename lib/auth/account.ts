@@ -91,13 +91,26 @@ export function confirmEmailChange(db: DB, token: string): { oldEmail: string; u
   const user = found && findAdminById(db, found.user_id);
   if (!found?.new_email || !user?.is_active) throw new Error("Bağlantı geçersiz ya da süresi dolmuş. Hesap sayfasından yeniden isteyin.");
   if (findAdminByEmail(db, found.new_email)) throw new Error(`${found.new_email} başka bir yöneticide kayıtlı`);
+  applyEmail(db, user, found.new_email, user.id);
+  return { oldEmail: user.email, user: findAdminById(db, user.id)! };
+}
+
+/** Komut satırından değiştirme: panele girilemediğinde sunucudaki kişi yapar, onay bağlantısı gerekmez. */
+export function changeAdminEmail(db: DB, oldEmail: string, newEmail: string): AdminUser {
+  const current = findAdminByEmail(db, oldEmail);
+  if (!current) throw new Error(`${normalizeEmail(oldEmail)} bulunamadı`);
+  const { user, email } = checkNewEmail(db, current.id, newEmail);
+  applyEmail(db, user, email, null);
+  return findAdminById(db, user.id)!;
+}
+
+function applyEmail(db: DB, user: AdminUser, email: string, actorId: number | null) {
   db.transaction(() => {
-    db.prepare("UPDATE admin_users SET email = ? WHERE id = ?").run(found.new_email, user.id);
+    db.prepare("UPDATE admin_users SET email = ? WHERE id = ?").run(email, user.id);
     deleteTokens(db, user.id, "email_change");
     deleteTokens(db, user.id, "password_reset");
-    audit(db, user.id, "admin.email_change", user.id, { from: user.email, to: found.new_email });
+    audit(db, actorId, "admin.email_change", user.id, { from: user.email, to: email, via: actorId ? "panel" : "cli" });
   })();
-  return { oldEmail: user.email, user: findAdminById(db, user.id)! };
 }
 
 /** Eski adrese haber verilir: hesap başkasının elindeyse sahibi görür. */

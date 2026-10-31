@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { before, test } from "node:test";
-import { confirmEmailChange, requestEmailChange, requestPasswordReset, resetPassword } from "../lib/auth/account.ts";
+import { changeAdminEmail, confirmEmailChange, requestEmailChange, requestPasswordReset, resetPassword } from "../lib/auth/account.ts";
 import { createAdmin, findAdminByEmail, setAdminActive, verifyLogin, type LoginResult } from "../lib/auth/admins.ts";
 import { createSession, getSessionUser } from "../lib/auth/sessions.ts";
 import { base32Encode, matchTotpStep, totpCode, totpUri } from "../lib/auth/totp.ts";
@@ -223,6 +223,18 @@ test("e-posta değişikliği bağlantı açılınca olur, anahtar tek kullanıml
   assert.equal((await verifyLogin(db, "yeni@naal.org.tr", PASSWORD)).ok, true);
   assert.equal(findAdminByEmail(db, EMAIL), undefined);
   assert.throws(() => confirmEmailChange(db, token), /geçersiz/);
+});
+
+test("komut satırı: adres onaysız değişir, kurallar aynıdır", async () => {
+  const db = testDb();
+  const { id } = await admin(db);
+  await admin(db, "dolu@naal.org.tr");
+  assert.throws(() => changeAdminEmail(db, EMAIL, "ali@gmail.com"), /ile bitmeli/);
+  assert.throws(() => changeAdminEmail(db, EMAIL, "dolu@naal.org.tr"), /başka bir yöneticide/);
+  assert.throws(() => changeAdminEmail(db, "yok@naal.org.tr", "yeni@naal.org.tr"), /bulunamadı/);
+
+  assert.equal(changeAdminEmail(db, EMAIL, "yeni@naal.org.tr").id, id);
+  assert.equal(findAdminByEmail(db, EMAIL), undefined);
 });
 
 test("e-posta onayı: adres bu arada başkasına verildiyse değişmez", async () => {

@@ -8,6 +8,7 @@
 //   npm run admin -- enable <e-posta>
 //   npm run admin -- remove <e-posta>
 //   npm run admin -- 2fa-off <e-posta>
+//   npm run admin -- email <eski e-posta> <yeni e-posta>
 //
 // Şifre terminalde gizli olarak sorulur. --generate verilirse rastgele şifre üretilip bir kez gösterilir.
 // Şifre betiğe borudan da verilebilir: echo "sifre" | npm run admin -- create ...
@@ -19,6 +20,7 @@ import {
   createAdmin, isRole, listAdmins, removeAdmin, ROLE_LABELS, ROLES,
   setAdminActive, setAdminPassword, setAdminRole, type Role,
 } from "../lib/auth/admins.ts";
+import { changeAdminEmail } from "../lib/auth/account.ts";
 import { generatePassword, passwordProblem } from "../lib/auth/password.ts";
 import { disableTotp } from "../lib/auth/two-factor.ts";
 
@@ -47,7 +49,8 @@ const USAGE = `Kullanım:
   npm run admin -- disable <e-posta>
   npm run admin -- enable <e-posta>
   npm run admin -- remove <e-posta>
-  npm run admin -- 2fa-off <e-posta>`;
+  npm run admin -- 2fa-off <e-posta>
+  npm run admin -- email <eski e-posta> <yeni e-posta>`;
 
 /** Gizli girişle şifre sorar; TTY değilse stdin'in ilk satırını okur. */
 async function readPassword(prompt: string): Promise<string> {
@@ -150,6 +153,12 @@ try {
       need(1);
       removeAdmin(db, args[0]);
       console.log(`✓ ${args[0]} silindi`);
+      break;
+    }
+    case "email": {
+      need(2);
+      const user = changeAdminEmail(db, args[0], args[1]);
+      console.log(`✓ ${args[0]} adresi ${user.email} oldu; panel yetkisi bir sonraki eşitlemede geçer`);
       break;
     }
     case "2fa-off": {
