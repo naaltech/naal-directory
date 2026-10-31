@@ -22,6 +22,7 @@ module.exports = {
       name: "naal-worker",
       cwd: __dirname,
       script: "scripts/worker.ts",
+      interpreter: "node",
       node_args: "--no-warnings",
       exec_mode: "fork",
       instances: 1,
