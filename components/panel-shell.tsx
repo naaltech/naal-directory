@@ -15,7 +15,7 @@ import {
   SkipToContent,
   Theme,
 } from "@carbon/react";
-import { Clean, Dashboard, Education, Events, Group, Logout, Renew, Upload, UserAdmin, UserMultiple, UserProfile } from "@carbon/icons-react";
+import { Clean, Dashboard, Education, Events, Group, Logout, Renew, Upload, UserAdmin, UserAvatar, UserMultiple, UserProfile } from "@carbon/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
@@ -83,14 +83,15 @@ export function PanelShell({
                   {label}
                 </SideNavLink>
               ))}
+              <SideNavDivider />
               {user.canManageAdmins && (
-                <>
-                  <SideNavDivider />
-                  <SideNavLink as={Link} href="/yoneticiler" renderIcon={UserAdmin} isActive={isActive("/yoneticiler")}>
-                    Yöneticiler
-                  </SideNavLink>
-                </>
+                <SideNavLink as={Link} href="/yoneticiler" renderIcon={UserAdmin} isActive={isActive("/yoneticiler")}>
+                  Yöneticiler
+                </SideNavLink>
               )}
+              <SideNavLink as={Link} href="/hesap" renderIcon={UserAvatar} isActive={isActive("/hesap")}>
+                Hesabım
+              </SideNavLink>
             </SideNavItems>
           </SideNav>
 

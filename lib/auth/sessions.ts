@@ -33,7 +33,7 @@ export function getSessionUser(db: DB, token: string | undefined): AdminUser | n
   const id = digest(token);
   const row = db
     .prepare(
-      `SELECT u.id, u.email, u.name, u.role, u.is_active, u.failed_logins, u.locked_until, u.last_login_at, u.created_at
+      `SELECT u.id, u.email, u.name, u.role, u.is_active, u.failed_logins, u.locked_until, u.last_login_at, u.created_at, u.totp_enabled_at
        FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
        WHERE s.id = ? AND s.expires_at > datetime('now')
          AND s.last_seen_at > datetime('now', ?) AND u.is_active = 1`,
@@ -42,6 +42,11 @@ export function getSessionUser(db: DB, token: string | undefined): AdminUser | n
   if (!row) return null;
   db.prepare("UPDATE admin_sessions SET last_seen_at = datetime('now') WHERE id = ? AND last_seen_at < datetime('now', '-1 minute')").run(id);
   return row;
+}
+
+/** Anahtar verilirse o oturum kalır; verilmezse hepsi kapanır */
+export function deleteOtherSessions(db: DB, userId: number, keepToken?: string) {
+  db.prepare("DELETE FROM admin_sessions WHERE user_id = ? AND id IS NOT ?").run(userId, keepToken ? digest(keepToken) : null);
 }
 
 export function deleteSession(db: DB, token: string | undefined) {

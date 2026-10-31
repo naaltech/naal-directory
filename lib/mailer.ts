@@ -51,6 +51,22 @@ export async function sendMail(mail: Mail): Promise<void> {
   }
 }
 
+/** Yöneticinin kendi hesabıyla ilgili e-postalar. Geliştirmede ayar yoksa içerik günlüğe yazılır. */
+export async function sendAccountMail(to: string, mail: Mail): Promise<void> {
+  const from = process.env.ALERT_EMAIL_FROM;
+  const smtp = smtpFromEnv();
+  if (!smtp || !from) {
+    if (process.env.NODE_ENV === "production") throw new Error("E-posta gönderimi ayarlı değil");
+    console.warn(`E-posta ayarlı değil. ${to}: ${mail.subject}\n${mail.text}`);
+    return;
+  }
+  try {
+    await smtp.sendMail({ from, to, subject: mail.subject, text: mail.text });
+  } finally {
+    smtp.close();
+  }
+}
+
 /** Sertifika e-postalarının göndericisi; adres tanımlı değilse null döner ve sertifikalar bekler. */
 export function personalMailerFromEnv() {
   const from = process.env.CERT_EMAIL_FROM;

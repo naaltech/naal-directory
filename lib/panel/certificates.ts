@@ -1,6 +1,7 @@
 // Toplu sertifika: kulüp panelden etkinlik başlığını ve katılımcı adreslerini bırakır, gerisi burada olur.
 //
-// Ad panelden gelmez: kişi dizinde okulda kayıtlıysa sertifikaya resmi adı yazılır, değilse satır reddedilir.
+// Kişi dizinde okulda kayıtlıysa sertifikaya resmi adı yazılır, panelden gelen ad yok sayılır. Okul dışı kişiye
+// (konuk, mezun, başka okuldan katılımcı) ad panelden gelir; adı yoksa satır reddedilir.
 // Sertifika numarası (file_id) satırla birlikte panelde üretilir; bu yüzden yarıda kesilen iş sertifikayı ikinci
 // kez açmaz, e-posta da aynı ileti kimliğiyle gönderildiği için Gmail tekrarını göstermez.
 //
@@ -45,8 +46,10 @@ async function issue(db: DB, api: PanelApi, mail: CertificateMailer, r: PanelRec
 
   if (!canManage(roles, r.requested_by.toLowerCase(), r.club_code)) return fail("İsteği yapan kişinin bu kulüpte yetkisi kalmamış.");
   if (!db.prepare("SELECT 1 FROM clubs WHERE code = ? AND is_active = 1").get(r.club_code)) return fail("Kulüp dizinde açık değil.");
-  const person = r.email ? findSchoolPerson(db, r.email) : null;
-  if (!person) return fail("Bu adres okulda kayıtlı bir hesap değil.");
+  const email = r.email?.trim().toLowerCase();
+  const name = r.name.trim();
+  const person = email ? (findSchoolPerson(db, email) ?? (name ? { email, name } : null)) : null;
+  if (!person) return fail("Bu adres okulda kayıtlı değil; okul dışı kişi için listeye ad yazılmalı.");
 
   if (!(await api.certificateExists(r.file_id))) {
     await api.addCertificate({

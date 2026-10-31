@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Theme } from "@carbon/react";
 import { getCurrentUser } from "@/lib/auth/server.ts";
@@ -34,6 +35,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h2 className="mb-2 text-3xl font-normal">Giriş yap</h2>
           <p className="mb-8 text-sm text-secondary">Yönetici hesabınızla devam edin.</p>
           <LoginForm next={next} turnstileSiteKey={turnstileSiteKey()} />
+          <p className="mt-4 text-sm">
+            <Link href="/login/sifremi-unuttum" className="text-interactive">
+              Şifremi unuttum
+            </Link>
+          </p>
           <p className="mt-8 text-xs text-helper">
             Hesabınız yoksa bir süper yöneticiden oluşturmasını isteyin. Hesaplar sunucuda{" "}
             <code className="font-mono">npm run admin</code> komutuyla açılır.

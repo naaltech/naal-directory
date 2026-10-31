@@ -28,6 +28,7 @@ import type { AdminUser, Role } from "@/lib/auth/admins.ts";
 import { formatDateTime } from "@/lib/format.ts";
 import {
   createAdminAction,
+  disableAdminTotpAction,
   removeAdminAction,
   resetAdminPasswordAction,
   setAdminActiveAction,
@@ -42,7 +43,7 @@ const ROLE_TAG: Record<Role, "purple" | "blue" | "gray"> = { SUPER_ADMIN: "purpl
 type Dialog =
   | { kind: "create" }
   | { kind: "password"; email: string; password: string; created: boolean }
-  | { kind: "reset" | "remove" | "transfer"; admin: AdminUser };
+  | { kind: "reset" | "remove" | "transfer" | "totp"; admin: AdminUser };
 
 export function AdminsTable({
   admins,
@@ -125,6 +126,11 @@ export function AdminsTable({
                     <Tag type={!a.is_active ? "gray" : locked ? "red" : "green"} size="sm">
                       {!a.is_active ? "Pasif" : locked ? "Kilitli" : "Aktif"}
                     </Tag>
+                    {a.totp_enabled_at && (
+                      <Tag type="teal" size="sm">
+                        2FA
+                      </Tag>
+                    )}
                   </TableCell>
                   <TableCell>{formatDateTime(a.last_login_at)}</TableCell>
                   {isSuper && (
@@ -140,6 +146,9 @@ export function AdminsTable({
                             onClick={() => act(() => setAdminActiveAction(a.id, !a.is_active))}
                           />
                           <OverflowMenuItem itemText="Şifreyi sıfırla" onClick={() => setDialog({ kind: "reset", admin: a })} />
+                          {a.totp_enabled_at && (
+                            <OverflowMenuItem itemText="İki adımlı doğrulamayı kapat" onClick={() => setDialog({ kind: "totp", admin: a })} />
+                          )}
                           <OverflowMenuItem
                             itemText="Süper yöneticiliği devret"
                             disabled={!a.is_active || locked}
@@ -208,6 +217,26 @@ export function AdminsTable({
           }
         >
           <p>Yeni bir şifre üretilir ve bir kez gösterilir. Eski şifre çalışmaz, açık oturumları kapanır.</p>
+          {error && <ModalError error={error} />}
+        </Modal>
+      )}
+
+      {dialog?.kind === "totp" && (
+        <Modal
+          closeButtonLabel="Kapat"
+          open
+          danger
+          modalHeading={`${dialog.admin.name} için iki adımlı doğrulama kapatılsın mı?`}
+          primaryButtonText={pending ? "Kapatılıyor…" : "Kapat"}
+          secondaryButtonText="Vazgeç"
+          primaryButtonDisabled={pending}
+          onRequestClose={close}
+          onRequestSubmit={() => act(() => disableAdminTotpAction(dialog.admin.id))}
+        >
+          <p>
+            Bunu yalnızca kişi telefonuna ve kurtarma kodlarına erişemiyorsa yapın. Kimliğinden emin olun: girişte artık
+            yalnızca şifre istenir.
+          </p>
           {error && <ModalError error={error} />}
         </Modal>
       )}

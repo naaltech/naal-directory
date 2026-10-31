@@ -7,6 +7,7 @@
 //   npm run admin -- disable <e-posta>
 //   npm run admin -- enable <e-posta>
 //   npm run admin -- remove <e-posta>
+//   npm run admin -- 2fa-off <e-posta>
 //
 // Şifre terminalde gizli olarak sorulur. --generate verilirse rastgele şifre üretilip bir kez gösterilir.
 // Şifre betiğe borudan da verilebilir: echo "sifre" | npm run admin -- create ...
@@ -19,6 +20,7 @@ import {
   setAdminActive, setAdminPassword, setAdminRole, type Role,
 } from "../lib/auth/admins.ts";
 import { generatePassword, passwordProblem } from "../lib/auth/password.ts";
+import { disableTotp } from "../lib/auth/two-factor.ts";
 
 loadEnv();
 
@@ -44,7 +46,8 @@ const USAGE = `Kullanım:
   npm run admin -- role <e-posta> <${ROLES.join("|")}>
   npm run admin -- disable <e-posta>
   npm run admin -- enable <e-posta>
-  npm run admin -- remove <e-posta>`;
+  npm run admin -- remove <e-posta>
+  npm run admin -- 2fa-off <e-posta>`;
 
 /** Gizli girişle şifre sorar; TTY değilse stdin'in ilk satırını okur. */
 async function readPassword(prompt: string): Promise<string> {
@@ -147,6 +150,12 @@ try {
       need(1);
       removeAdmin(db, args[0]);
       console.log(`✓ ${args[0]} silindi`);
+      break;
+    }
+    case "2fa-off": {
+      need(1);
+      disableTotp(db, args[0]);
+      console.log(`✓ ${args[0]} iki adımlı doğrulaması kapatıldı`);
       break;
     }
     default:

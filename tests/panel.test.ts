@@ -128,7 +128,6 @@ test("rol: süper yönetici yalnızca okul alan adından, aktif hesaptan gelir",
   addSuper(db, "dis@gmail.com");
   addSuper(db, "pasif@naal.org.tr");
   db.prepare("UPDATE admin_users SET is_active = 0 WHERE email = 'pasif@naal.org.tr'").run();
-  addAdmin(db, "normal@naal.org.tr");
   assert.deepEqual(desiredRoles(db).map((r) => r.email), [SUPER]);
 });
 
@@ -201,6 +200,16 @@ test("köprü: Supabase'de olmayan açık kulüp eklenir, kapalı kulüp eklenme
   const { api, state } = fakeApi({ clubs: ["TECH"] });
   await syncPanel(db, api);
   assert.deepEqual(state.clubs, ["TECH", "yeni"]);
+});
+
+test("köprü: Yönetici de süper yönetici olur, Görüntüleyici olmaz", async () => {
+  const db = testDb();
+  addSuper(db);
+  addAdmin(db, "yonetici@nevzatayazal.k12.tr");
+  db.prepare("UPDATE admin_users SET role = 'VIEWER' WHERE id = ?").run(addAdmin(db, "izleyici@nevzatayazal.k12.tr"));
+  const { api, state } = fakeApi({});
+  await syncPanel(db, api);
+  assert.deepEqual(state.roles.filter((r) => r.role === "super").map((r) => r.email).sort(), ["yonetici@nevzatayazal.k12.tr", SUPER].sort());
 });
 
 test("köprü: etkinlik eklenmez, sonradan işaretlenen kulüp gizlenir, işaret kalkınca geri gelir", async () => {
@@ -363,6 +372,7 @@ function recipient(over: Partial<PanelRecipient> = {}): PanelRecipient {
     id: 1,
     email: "ayse@ogr.nevzatayazal.k12.tr",
     file_id: "CERT-1",
+    name: "",
     attempts: 0,
     club_code: "tech",
     title: "Robotik Atölyesi",
@@ -401,14 +411,32 @@ test("sertifika: ad dizinden gelir, kulüp kaydına yazılır, e-posta Supabase'
   assert.deepEqual({ status, email, saved }, { status: "sent", email: null, saved: name });
 });
 
-test("sertifika: mezun, yabancı adres, kapalı kulüp ve yetkisini kaybeden istek sertifika üretmez", async () => {
+test("sertifika: okul dışı kişiye listedeki adla verilir, okuldaki kişinin adı dizinden gelir", async () => {
+  const db = certSetup();
+  const sent: PersonalMail[] = [];
+  const { api, state } = fakeApi({
+    recipients: [
+      recipient({ id: 1, file_id: "CERT-1", email: " Konuk@Gmail.com ", name: " Zeynep Konuk " }),
+      recipient({ id: 2, file_id: "CERT-2", email: "ayse@ogr.nevzatayazal.k12.tr", name: "Uydurma Ad" }),
+    ],
+  });
+  await issueCertificates(db, api, async (m) => void sent.push(m), desiredRoles(db), 0);
+
+  assert.equal(state.certs[0].given, "Zeynep Konuk");
+  assert.equal(sent[0].to, "konuk@gmail.com");
+  assert.match(sent[0].text, /Merhaba Zeynep Konuk,/);
+  assert.equal(state.results[0].result.email, null);
+  assert.equal(state.certs[1].given, findSchoolPerson(db, "ayse@ogr.nevzatayazal.k12.tr")!.name);
+});
+
+test("sertifika: adsız yabancı adres, adsız mezun, kapalı kulüp ve yetkisini kaybeden istek sertifika üretmez", async () => {
   const db = certSetup();
   addClub(db, "eski", 0);
   addStudent(db, { email: "mezun@ogr.nevzatayazal.k12.tr", exitReason: "GRADUATED" });
   const { api, state } = fakeApi({
     recipients: [
       recipient({ id: 1, email: "mezun@ogr.nevzatayazal.k12.tr" }),
-      recipient({ id: 2, email: "dis@gmail.com" }),
+      recipient({ id: 2, email: "dis@gmail.com", name: "   " }),
       recipient({ id: 3, club_code: "eski" }),
       recipient({ id: 4, requested_by: "eski@ogr.nevzatayazal.k12.tr" }),
     ],
@@ -470,13 +498,13 @@ test("api: sertifika satırı yığın bilgisiyle düzleştirilir, kulüp durumu
   const fetcher = (async (url: string, init?: RequestInit) => {
     calls.push({ url, method: init?.method, body: init?.body as string });
     const rows = url.includes("certificate_recipients")
-      ? [{ id: 7, email: "a@b.tr", file_id: "C", attempts: 0, certificate_batches: { club_code: "tech", title: "T", event_date: "2026-01-02", issuer: "I", requested_by: "r@b.tr" } }]
+      ? [{ id: 7, email: "a@b.tr", name: "", file_id: "C", attempts: 0, certificate_batches: { club_code: "tech", title: "T", event_date: "2026-01-02", issuer: "I", requested_by: "r@b.tr" } }]
       : [];
     return new Response(JSON.stringify(rows));
   }) as typeof fetch;
   const api = createPanelApi("https://x.supabase.co", "key", fetcher);
   const [row] = await api.pendingRecipients();
-  assert.deepEqual(row, { id: 7, email: "a@b.tr", file_id: "C", attempts: 0, club_code: "tech", title: "T", event_date: "2026-01-02", issuer: "I", requested_by: "r@b.tr" });
+  assert.deepEqual(row, { id: 7, email: "a@b.tr", name: "", file_id: "C", attempts: 0, club_code: "tech", title: "T", event_date: "2026-01-02", issuer: "I", requested_by: "r@b.tr" });
   await api.setClubActive("tech", false);
   assert.equal(calls[1].url, "https://x.supabase.co/rest/v1/clubs?code=eq.tech");
   assert.equal(calls[1].body, '{"is_active":false}');

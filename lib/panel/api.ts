@@ -20,6 +20,8 @@ export interface PanelClub {
 export interface PanelRecipient {
   id: number;
   email: string | null;
+  /** Yalnızca okul dışı kişilerde kullanılır; okulda kayıtlı kişinin adı dizinden gelir */
+  name: string;
   file_id: string;
   attempts: number;
   club_code: string;
@@ -113,7 +115,7 @@ export function createPanelApi(url: string, key: string, fetcher: typeof fetch =
     async pendingRecipients() {
       const rows = (await (
         await rest(
-          "certificate_recipients?select=id,email,file_id,attempts,certificate_batches(club_code,title,event_date,issuer,requested_by)&status=eq.pending&order=id&limit=30",
+          "certificate_recipients?select=id,email,name,file_id,attempts,certificate_batches(club_code,title,event_date,issuer,requested_by)&status=eq.pending&order=id&limit=30",
         )
       ).json()) as (Omit<PanelRecipient, "club_code" | "title" | "event_date" | "issuer" | "requested_by"> & {
         certificate_batches: Pick<PanelRecipient, "club_code" | "title" | "event_date" | "issuer" | "requested_by">;

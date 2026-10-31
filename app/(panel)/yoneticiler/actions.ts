@@ -19,6 +19,7 @@ import {
 } from "@/lib/auth/admins.ts";
 import { generatePassword } from "@/lib/auth/password.ts";
 import { requireUser } from "@/lib/auth/server.ts";
+import { disableTotp } from "@/lib/auth/two-factor.ts";
 import { getDb } from "@/lib/db.ts";
 
 export type AdminActionResult = { ok: true; password?: string } | { ok: false; error: string };
@@ -75,6 +76,12 @@ export async function resetAdminPasswordAction(id: number): Promise<AdminActionR
     await setAdminPassword(getDb(), subAdmin(id, me.id).email, password, me.id);
     return password;
   });
+}
+
+/** Telefonunu ve kurtarma kodlarını kaybeden yönetici için */
+export async function disableAdminTotpAction(id: number): Promise<AdminActionResult> {
+  const me = await requireUser("SUPER_ADMIN");
+  return run(() => disableTotp(getDb(), subAdmin(id, me.id).email, me.id));
 }
 
 export async function removeAdminAction(id: number): Promise<AdminActionResult> {

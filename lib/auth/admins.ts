@@ -4,6 +4,8 @@
 import type { DB } from "../db.ts";
 import { sqlDate } from "../db.ts";
 import { hashPassword, passwordProblem, verifyPassword } from "./password.ts";
+import { deleteOtherSessions } from "./sessions.ts";
+import { createToken } from "./tokens.ts";
 
 export const ROLES = ["SUPER_ADMIN", "ADMIN", "VIEWER"] as const;
 export type Role = (typeof ROLES)[number];
@@ -24,13 +26,16 @@ export interface AdminUser {
   locked_until: string | null;
   last_login_at: string | null;
   created_at: string;
+  totp_enabled_at: string | null;
 }
 
-const COLUMNS = "id, email, name, role, is_active, failed_logins, locked_until, last_login_at, created_at";
+const COLUMNS = "id, email, name, role, is_active, failed_logins, locked_until, last_login_at, created_at, totp_enabled_at";
 
 /** Bu kadar hatalı denemeden sonra hesap LOCK_MINUTES dakika kilitlenir */
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 15;
+/** Şifreden sonra doğrulama kodunu girmek için süre */
+const CHALLENGE_MINUTES = 5;
 
 export function isRole(v: string): v is Role {
   return (ROLES as readonly string[]).includes(v);
@@ -72,15 +77,16 @@ export async function createAdmin(
   return findAdminById(db, Number(lastInsertRowid))!;
 }
 
-export async function setAdminPassword(db: DB, email: string, password: string, actorId: number | null = null): Promise<void> {
+export async function setAdminPassword(db: DB, email: string, password: string, actorId: number | null = null, keepSession?: string): Promise<void> {
   const user = mustFind(db, email);
   const problem = passwordProblem(password);
   if (problem) throw new Error(problem);
   const hash = await hashPassword(password);
   db.transaction(() => {
     db.prepare("UPDATE admin_users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?").run(hash, user.id);
-    // Şifre değişince açık oturumlar kapanır
-    db.prepare("DELETE FROM admin_sessions WHERE user_id = ?").run(user.id);
+    // Şifre değişince açık oturumlar kapanır (kendi şifresini değiştirenin bu cihazdaki oturumu kalır)
+    deleteOtherSessions(db, user.id, keepSession);
+    db.prepare("DELETE FROM admin_tokens WHERE user_id = ? AND purpose = 'two_factor'").run(user.id);
   })();
   audit(db, actorId, "admin.password", user.id, { email: user.email, via: via(actorId) });
 }
@@ -136,7 +142,24 @@ export function transferSuperAdmin(db: DB, fromId: number, toId: number): void {
 
 export type LoginResult =
   | { ok: true; user: AdminUser }
-  | { ok: false; reason: "invalid" | "locked" | "disabled"; lockedUntil?: string };
+  | { ok: false; reason: "invalid" | "locked" | "disabled" | "expired"; lockedUntil?: string }
+  // Şifre doğru ama iki adımlı doğrulama açık: oturum ancak verifyTwoFactor'dan sonra açılır
+  | { ok: false; reason: "two_factor"; challenge: string };
+
+/** Hatalı denemeyi sayar, sınır aşıldıysa kilit bitişini döner. */
+export function recordFailure(db: DB, id: number, failedLogins: number): string | null {
+  const failed = failedLogins + 1;
+  const lock = failed >= MAX_FAILED ? sqlDate(new Date(Date.now() + LOCK_MINUTES * 60_000)) : null;
+  db.prepare("UPDATE admin_users SET failed_logins = ?, locked_until = ? WHERE id = ?").run(lock ? 0 : failed, lock, id);
+  audit(db, id, "admin.login_failed", id, { locked: Boolean(lock) });
+  return lock;
+}
+
+export function finishLogin(db: DB, user: AdminUser): AdminUser {
+  db.prepare("UPDATE admin_users SET failed_logins = 0, locked_until = NULL, last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  audit(db, user.id, "admin.login", user.id);
+  return user;
+}
 
 /** Şifreyi doğrular, hatalı denemeleri sayar ve gerekirse hesabı geçici kilitler. */
 export async function verifyLogin(db: DB, email: string, password: string): Promise<LoginResult> {
@@ -154,19 +177,17 @@ export async function verifyLogin(db: DB, email: string, password: string): Prom
 
   const valid = await verifyPassword(password, row.password_hash);
   if (!valid) {
-    const failed = row.failed_logins + 1;
-    const lock = failed >= MAX_FAILED ? sqlDate(new Date(Date.now() + LOCK_MINUTES * 60_000)) : null;
-    db.prepare("UPDATE admin_users SET failed_logins = ?, locked_until = ? WHERE id = ?").run(lock ? 0 : failed, lock, row.id);
-    audit(db, row.id, "admin.login_failed", row.id, { locked: Boolean(lock) });
+    const lock = recordFailure(db, row.id, row.failed_logins);
     return lock ? { ok: false, reason: "locked", lockedUntil: lock } : { ok: false, reason: "invalid" };
   }
   if (!row.is_active) return { ok: false, reason: "disabled" };
 
-  db.prepare("UPDATE admin_users SET failed_logins = 0, locked_until = NULL, last_login_at = datetime('now') WHERE id = ?").run(row.id);
-  audit(db, row.id, "admin.login", row.id);
+  // Sayaç burada sıfırlanmaz: şifreyi bilen, kodu deneyerek kilidi atlatamasın
+  if (row.totp_enabled_at) return { ok: false, reason: "two_factor", challenge: createToken(db, row.id, "two_factor", CHALLENGE_MINUTES) };
+
   const user: AdminUser & { password_hash?: string } = { ...row };
   delete user.password_hash;
-  return { ok: true, user };
+  return { ok: true, user: finishLogin(db, user) };
 }
 
 // Hiçbir şifreyle eşleşmeyen sahte özet (aynı scrypt maliyetiyle)

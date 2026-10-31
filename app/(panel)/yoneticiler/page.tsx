@@ -39,7 +39,7 @@ export default async function AdminsPage() {
               Panele erişim kalmadığında (ör. tek süper yöneticinin şifresi unutuldu) sunucuda komut satırından:
             </p>
             <CodeSnippet type="multi" feedback="Kopyalandı">
-              {["npm run admin -- list", "npm run admin -- passwd <e-posta>", "npm run admin -- role <e-posta> SUPER_ADMIN"].join(
+              {["npm run admin -- list", "npm run admin -- passwd <e-posta>", "npm run admin -- 2fa-off <e-posta>", "npm run admin -- role <e-posta> SUPER_ADMIN"].join(
                 "\n",
               )}
             </CodeSnippet>

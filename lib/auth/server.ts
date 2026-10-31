@@ -43,6 +43,11 @@ export async function startSession(userId: number) {
   });
 }
 
+/** Bu cihazın çerezi: kendi hesabını değiştiren yöneticinin oturumu kapanmasın */
+export async function currentSessionToken(): Promise<string | undefined> {
+  return (await cookies()).get(SESSION_COOKIE)?.value;
+}
+
 export async function endSession() {
   const jar = await cookies();
   deleteSession(getDb(), jar.get(SESSION_COOKIE)?.value);

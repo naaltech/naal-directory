@@ -67,7 +67,8 @@ Sunucuya kurulum (VPS, pm2, Caddy, yedek, cron) için: [deploy/README.md](deploy
 | `DATABASE_PATH` | SQLite dosyası, varsayılan `./data/app.db` |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` | Servis hesabı JSON anahtarı (`./secrets/...`, git'e eklenmez) |
 | `GOOGLE_ADMIN_IMPERSONATE` | Servis hesabının adına çalışacağı süper yönetici hesabı |
-| `PASSWORD_ENC_KEY` | İlk şifreleri şifrelemek için 32 baytlık anahtar (base64) |
+| `PASSWORD_ENC_KEY` | İlk şifreleri ve iki adımlı doğrulama anahtarlarını şifrelemek için 32 baytlık anahtar (base64) |
+| `APP_URL` | Şifre sıfırlama ve e-posta onayı bağlantılarının adresi; boşsa `https://dir.naal.org.tr` |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Giriş formunda Cloudflare Turnstile; geliştirmede boş bırakılabilir, üretimde zorunlu |
 
 `PASSWORD_ENC_KEY` bir kez belirlendikten sonra değiştirilmemelidir: değişirse kayıtlı ilk şifreler çözülemez.
@@ -146,8 +147,8 @@ yapılan Google karşılaştırmasının (`npm run reconcile`) farklarını gös
 
 Aynı süreç yıllık döngüyü (temiz listenin onayı, ayrılanlar, süresi dolan ilk şifreler; `lib/year-cycle.ts`) ve yönetim
 paneli köprüsünü (`lib/panel/`) çalıştırır. Panelin yetkileri elle tutulmaz, dizindeki görev ve okul durumundan
-hesaplanıp Supabase'e yazılır: açık kulübün başkanı, başkan yardımcısı ve danışmanı kulübü, aktif `SUPER_ADMIN` hesapları
-her şeyi yönetir. Dergi editörü yalnızca bilim kulübündedir ve panelden eklenir.
+hesaplanıp Supabase'e yazılır: açık kulübün başkanı, başkan yardımcısı ve danışmanı kulübü, aktif `SUPER_ADMIN` ve `ADMIN`
+hesapları her şeyi yönetir. Dergi editörü yalnızca bilim kulübündedir ve panelden eklenir.
 
 ## Proje yapısı
 
